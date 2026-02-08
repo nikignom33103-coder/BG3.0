@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сборы и заказы — Благо дарить v5.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f8fafc; color: #334155; }
+        .nav-link.active { background: #0f766e; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .tab-btn.active { border-color: #0f766e; color: #0f766e; border-bottom-width: 2px; }
+        .progress-bar { background: linear-gradient(90deg, #10b981 0%, #059669 100%); }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <aside class="w-64 bg-slate-900 text-white flex flex-col z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center font-bold">Б</div>
+            <span class="font-bold text-lg">Благо дарить</span>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+            <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Меню</p>
+            <a href="dashboard.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-chart-pie w-6"></i>Сводка</a>
+            <a href="finances.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-money-bill-wave w-6"></i>Финансы</a>
+            <a href="shipments.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-truck w-6"></i>Рейсы</a>
+            <a href="fundraising.html" class="nav-link active flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition"><i class="fas fa-piggy-bank w-6"></i>Сборы</a>
+            <a href="inventory.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-warehouse w-6"></i>Склад</a>
+            <a href="recipients.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-users w-6"></i>Получатели</a>
+            <a href="team.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-people-group w-6"></i>Команда</a>
+            <a href="press.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-newspaper w-6"></i>Пресс-центр</a>
+            <a href="reports.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-chart-bar w-6"></i>Отчеты</a>
+            <div id="adminBlock" class="hidden mt-6">
+                <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Админ</p>
+                <a href="users.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-user-shield w-6"></i>Доступ</a>
+                <a href="settings.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-cogs w-6"></i>Настройки</a>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+            <div id="ava" class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold"></div>
+            <div class="flex-1 min-w-0">
+                <p id="myName" class="text-sm font-bold truncate">...</p>
+                <p id="myRole" class="text-xs text-slate-400 truncate">...</p>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-white"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col bg-[#f1f5f9] overflow-hidden">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10 shadow-sm">
+            <div>
+                <h2 class="text-xl font-bold text-slate-800">Сборы и заказы v5.0</h2>
+                <p class="text-xs text-slate-500 mt-1">Управление целевыми сборами и заказами для подразделений</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="openFundModal()" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-emerald-700 transition shadow-lg shadow-emerald-500/30"><i class="fas fa-plus mr-2"></i>Сбор</button>
+                <button onclick="openOrderModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 transition shadow-lg shadow-blue-500/30"><i class="fas fa-plus mr-2"></i>Заказ</button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8">
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-200 mb-6 gap-6">
+                <button onclick="switchTab('fundraising')" id="tabFundraising" class="tab-btn active pb-3 px-2 text-sm font-bold transition">💰 Целевые сборы</button>
+                <button onclick="switchTab('orders')" id="tabOrders" class="tab-btn pb-3 px-2 text-sm font-bold transition">📦 Заказы</button>
+            </div>
+
+            <!-- Fundraising Tab -->
+            <div id="fundraisingTab" class="space-y-6">
+                <!-- Active Fundraisings -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="fundraisingsContainer">
+                    <!-- Will be filled dynamically -->
+                </div>
+            </div>
+
+            <!-- Orders Tab -->
+            <div id="ordersTab" class="hidden">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase border-b border-slate-200">
+                            <tr>
+                                <th class="px-6 py-4">Номер</th>
+                                <th class="px-6 py-4">Для подразделения</th>
+                                <th class="px-6 py-4">Статус</th>
+                                <th class="px-6 py-4">Товарные позиции</th>
+                                <th class="px-6 py-4">Смета</th>
+                                <th class="px-6 py-4 text-right">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTable" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Fundraising Modal -->
+    <div id="fundModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-xl text-slate-800">Создать целевой сбор</h3>
+                <button onclick="closeFundModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <form id="fundForm" onsubmit="event.preventDefault(); saveFund();" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Название сбора</label>
+                    <input type="text" name="title" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Например: Сбор на рейс в Донецк" required>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Тип сбора</label>
+                    <select name="type" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                        <option value="">Выберите тип</option>
+                        <option value="trip">На рейс</option>
+                        <option value="goods">На товары</option>
+                        <option value="general">Общий</option>
+                        <option value="urgent">Срочный</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Целевая сумма (₽)</label>
+                    <input type="number" name="target" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="0" required step="0.01">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Описание</label>
+                    <textarea name="description" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Подробное описание сбора" rows="3"></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Крайний срок</label>
+                    <input type="date" name="deadline" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                </div>
+
+                <button type="submit" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition">Создать сбор</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Order Modal -->
+    <div id="orderModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-xl text-slate-800">Создать заказ</h3>
+                <button onclick="closeOrderModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <form id="orderForm" onsubmit="event.preventDefault(); saveOrder();" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Подразделение / Командир</label>
+                    <input type="text" name="recipient" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Например: 10-я ота" required>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Категория товаров</label>
+                    <select name="category" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                        <option value="">Выберите категорию</option>
+                        <option value="food">Продукты</option>
+                        <option value="medical">Медикаменты</option>
+                        <option value="equipment">Оборудование</option>
+                        <option value="other">Прочее</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Список товаров (ссылка на маркетплейс)</label>
+                    <textarea name="items" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Вставьте ссылку или описание товаров" rows="3" required></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Примерная смета (₽)</label>
+                    <input type="number" name="budget" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="0" step="0.01">
+                </div>
+
+                <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition">Создать заказ</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let db;
+        let currentUser;
+
+        firebase.initializeApp({ apiKey: "AIzaSyDRMyiouLjL6oyQK5TIpr69b8mvCcq4uLE", authDomain: "blago-a6270.firebaseapp.com", databaseURL: "https://blago-a6270-default-rtdb.firebaseio.com", projectId: "blago-a6270", storageBucket: "blago-a6270.firebasestorage.app", messagingSenderId: "857823585303", appId: "1:857823585303:web:6ce2d1acff62b16ebd2852" });
+        db = firebase.database();
+
+        function initUser() {
+            const user = JSON.parse(localStorage.getItem('blago_user'));
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentUser = user;
+            document.getElementById('myName').textContent = user.name;
+            document.getElementById('myRole').textContent = user.role;
+            document.getElementById('ava').textContent = user.name[0];
+            if (user.role === 'admin') document.getElementById('adminBlock').classList.remove('hidden');
+            loadData();
+        }
+
+        function loadData() {
+            db.ref('fundraisings').once('value', snap => {
+                renderFundraisings(snap.val() || {});
+            });
+            db.ref('orders').once('value', snap => {
+                renderOrders(snap.val() || {});
+            });
+        }
+
+        function renderFundraisings(fundraisings) {
+            const container = document.getElementById('fundraisingsContainer');
+            container.innerHTML = '';
+            
+            Object.entries(fundraisings).forEach(([id, fund]) => {
+                if (!fund || !fund.title) return;
+                
+                const collected = fund.collected || 0;
+                const target = fund.target || 1;
+                const percent = (collected / target * 100).toFixed(0);
+                
+                const card = document.createElement('div');
+                card.className = 'bg-white p-6 rounded-2xl shadow-sm border border-slate-100';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="font-bold text-lg text-slate-800">${fund.title}</h3>
+                            <p class="text-xs text-slate-500 mt-1 uppercase">${fund.type || 'Общий'}</p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-xs font-bold ${fund.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'}">
+                            ${fund.status === 'active' ? '🔵 Активен' : '⏹ Завершен'}
+                        </span>
+                    </div>
+                    
+                    <p class="text-sm text-slate-600 mb-4">${fund.description || ''}</p>
+                    
+                    <div class="mb-4">
+                        <div class="flex justify-between items-baseline mb-2">
+                            <span class="text-sm font-bold text-slate-700">Собрано: ${collected.toLocaleString('ru-RU')} ₽</span>
+                            <span class="text-xs text-slate-500">${percent}%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 rounded-full h-2">
+                            <div class="progress-bar h-2 rounded-full" style="width: ${Math.min(percent, 100)}%"></div>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1">Цель: ${target.toLocaleString('ru-RU')} ₽</p>
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        <button onclick="editFund('${id}')" class="flex-1 px-3 py-1.5 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition">
+                            <i class="fas fa-edit mr-1"></i>Изменить
+                        </button>
+                        <button onclick="deleteFund('${id}')" class="flex-1 px-3 py-1.5 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition">
+                            <i class="fas fa-trash mr-1"></i>Удалить
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderOrders(orders) {
+            const table = document.getElementById('ordersTable');
+            table.innerHTML = '';
+            
+            Object.entries(orders).forEach(([id, order]) => {
+                if (!order || !order.recipient) return;
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-bold">#${id.substring(0, 6)}</td>
+                    <td class="px-6 py-4">${order.recipient}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">Новый</span></td>
+                    <td class="px-6 py-4 text-sm truncate" title="${order.items}">${order.items}</td>
+                    <td class="px-6 py-4 font-bold">${(order.budget || 0).toLocaleString('ru-RU')} ₽</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="viewOrder('${id}')" class="text-blue-600 hover:text-blue-800 text-sm font-bold">Просмотр →</button>
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+        }
+
+        function switchTab(tab) {
+            document.getElementById('fundraisingTab').classList.toggle('hidden', tab !== 'fundraising');
+            document.getElementById('ordersTab').classList.toggle('hidden', tab !== 'orders');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active', 'border-b-2'));
+            event.target.classList.add('active', 'border-b-2');
+        }
+
+        function openFundModal() {
+            document.getElementById('fundForm').reset();
+            document.getElementById('fundModal').classList.remove('hidden');
+        }
+
+        function closeFundModal() {
+            document.getElementById('fundModal').classList.add('hidden');
+        }
+
+        function openOrderModal() {
+            document.getElementById('orderForm').reset();
+            document.getElementById('orderModal').classList.remove('hidden');
+        }
+
+        function closeOrderModal() {
+            document.getElementById('orderModal').classList.add('hidden');
+        }
+
+        function saveFund() {
+            const form = document.getElementById('fundForm');
+            const data = new FormData(form);
+            
+            db.ref('fundraisings').push({
+                title: data.get('title'),
+                type: data.get('type'),
+                target: parseFloat(data.get('target')),
+                description: data.get('description'),
+                deadline: data.get('deadline'),
+                collected: 0,
+                status: 'active',
+                created: new Date().toISOString(),
+                createdBy: currentUser.name
+            }, () => {
+                closeFundModal();
+                loadData();
+                alert('Сбор создан');
+            });
+        }
+
+        function saveOrder() {
+            const form = document.getElementById('orderForm');
+            const data = new FormData(form);
+            
+            db.ref('orders').push({
+                recipient: data.get('recipient'),
+                category: data.get('category'),
+                items: data.get('items'),
+                budget: parseFloat(data.get('budget')),
+                status: 'new',
+                created: new Date().toISOString(),
+                createdBy: currentUser.name
+            }, () => {
+                closeOrderModal();
+                loadData();
+                alert('Заказ создан');
+            });
+        }
+
+        function logout() {
+            localStorage.removeItem('blago_user');
+            window.location.href = 'index.html';
+        }
+
+        initUser();
+    </script>
+</body>
+</html>

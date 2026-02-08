@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Пресс-центр — Благо дарить v5.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f8fafc; color: #334155; }
+        .nav-link.active { background: #0f766e; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .generator-card { transition: all 0.3s ease; }
+        .generator-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <aside class="w-64 bg-slate-900 text-white flex flex-col z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center font-bold">Б</div>
+            <span class="font-bold text-lg">Благо дарить</span>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+            <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Меню</p>
+            <a href="dashboard.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-chart-pie w-6"></i>Сводка</a>
+            <a href="finances.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-money-bill-wave w-6"></i>Финансы</a>
+            <a href="shipments.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-truck w-6"></i>Рейсы</a>
+            <a href="fundraising.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-piggy-bank w-6"></i>Сборы</a>
+            <a href="inventory.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-warehouse w-6"></i>Склад</a>
+            <a href="recipients.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-users w-6"></i>Получатели</a>
+            <a href="team.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-people-group w-6"></i>Команда</a>
+            <a href="press.html" class="nav-link active flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition"><i class="fas fa-newspaper w-6"></i>Пресс-центр</a>
+            <a href="reports.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-chart-bar w-6"></i>Отчеты</a>
+            <div id="adminBlock" class="hidden mt-6">
+                <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Админ</p>
+                <a href="users.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-user-shield w-6"></i>Доступ</a>
+                <a href="settings.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-cogs w-6"></i>Настройки</a>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+            <div id="ava" class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold"></div>
+            <div class="flex-1 min-w-0">
+                <p id="myName" class="text-sm font-bold truncate">...</p>
+                <p id="myRole" class="text-xs text-slate-400 truncate">...</p>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-white"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col bg-[#f1f5f9] overflow-hidden">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10 shadow-sm">
+            <div>
+                <h2 class="text-xl font-bold text-slate-800">Пресс-центр v5.0</h2>
+                <p class="text-xs text-slate-500 mt-1">Автоматическое создание контента для соцсетей</p>
+            </div>
+            <button onclick="openAllGenerators()" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:shadow-purple-500/30 transition flex items-center gap-2">
+                <i class="fas fa-magic"></i> Быстрая генерация
+            </button>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Generator 1: Morning Post -->
+                <div class="generator-card bg-white p-6 rounded-2xl shadow-sm border border-slate-100 cursor-pointer" onclick="generateMorningPost()">
+                    <div class="w-12 h-12 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center text-2xl mb-4">☀️</div>
+                    <h3 class="font-bold text-lg text-slate-800 mb-2">Утренний пост</h3>
+                    <p class="text-sm text-slate-600 mb-4">Автопост с целевым сбором и актуальной информацией</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Для ВК, Телеграм</span>
+                        <button class="text-amber-600 font-bold"><i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Generator 2: Noon Post -->
+                <div class="generator-card bg-white p-6 rounded-2xl shadow-sm border border-slate-100 cursor-pointer" onclick="generateNoonPost()">
+                    <div class="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-xl flex items-center justify-center text-2xl mb-4">🌤️</div>
+                    <h3 class="font-bold text-lg text-slate-800 mb-2">Обеденный пост</h3>
+                    <p class="text-sm text-slate-600 mb-4">Пост о текущих нуждах и результатах</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Для ВК, Телеграм</span>
+                        <button class="text-yellow-600 font-bold"><i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Generator 3: Shop Post -->
+                <div class="generator-card bg-white p-6 rounded-2xl shadow-sm border border-slate-100 cursor-pointer" onclick="generateShopPost()">
+                    <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-2xl mb-4">🛍️</div>
+                    <h3 class="font-bold text-lg text-slate-800 mb-2">Магазин на диване</h3>
+                    <p class="text-sm text-slate-600 mb-4">Подборка товаров со ссылками на маркетплейсы</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Для ВК, Телеграм</span>
+                        <button class="text-blue-600 font-bold"><i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Generator 4: Financial Report -->
+                <div class="generator-card bg-white p-6 rounded-2xl shadow-sm border border-slate-100 cursor-pointer" onclick="generateFinanceReport()">
+                    <div class="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center text-2xl mb-4">💚</div>
+                    <h3 class="font-bold text-lg text-slate-800 mb-2">Финансовый отчет</h3>
+                    <p class="text-sm text-slate-600 mb-4">Отчет о собранных средствах и их использовании</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Для всех платформ</span>
+                        <button class="text-green-600 font-bold"><i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Generator 5: Shipment Update -->
+                <div class="generator-card bg-white p-6 rounded-2xl shadow-sm border border-slate-100 cursor-pointer" onclick="generateShipmentPost()">
+                    <div class="w-12 h-12 bg-red-100 text-red-600 rounded-xl flex items-center justify-center text-2xl mb-4">🚚</div>
+                    <h3 class="font-bold text-lg text-slate-800 mb-2">Отчет о рейсе</h3>
+                    <p class="text-sm text-slate-600 mb-4">Информация о подготовленном или завершенном рейсе</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Для всех платформ</span>
+                        <button class="text-red-600 font-bold"><i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- Generator 6: Thank You Post -->
+                <div class="generator-card bg-white p-6 rounded-2xl shadow-sm border border-slate-100 cursor-pointer" onclick="generateThankYouPost()">
+                    <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center text-2xl mb-4">🙏</div>
+                    <h3 class="font-bold text-lg text-slate-800 mb-2">Спасибо доноры</h3>
+                    <p class="text-sm text-slate-600 mb-4">Благодарность нашим верным помощникам</p>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">Для всех платформ</span>
+                        <button class="text-purple-600 font-bold"><i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generated Posts Preview -->
+            <div class="mt-8">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">📋 Предпросмотр контента</h3>
+                <div id="previewContainer" class="space-y-4">
+                    <!-- Posts will be generated here -->
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Preview Modal -->
+    <div id="previewModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl p-8 max-h-[90vh] overflow-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-2xl text-slate-800">Предпросмотр поста</h3>
+                <button onclick="closePreview()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-2xl"></i></button>
+            </div>
+            
+            <div id="previewContent" class="bg-slate-50 p-6 rounded-xl mb-6 font-medium text-slate-800 whitespace-pre-wrap leading-relaxed border-l-4 border-emerald-500"></div>
+            
+            <div class="flex gap-3">
+                <button onclick="copyToClipboard()" class="flex-1 bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition flex items-center justify-center gap-2">
+                    <i class="fas fa-copy"></i> Копировать
+                </button>
+                <button onclick="downloadAsImage()" class="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                    <i class="fas fa-image"></i> Сохранить изображение
+                </button>
+                <button onclick="schedulePost()" class="flex-1 bg-purple-600 text-white py-3 rounded-xl font-bold hover:bg-purple-700 transition flex items-center justify-center gap-2">
+                    <i class="fas fa-calendar"></i> Расписание
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let db;
+        let currentUser;
+        let currentPreviewContent = '';
+
+        firebase.initializeApp({ apiKey: "AIzaSyDRMyiouLjL6oyQK5TIpr69b8mvCcq4uLE", authDomain: "blago-a6270.firebaseapp.com", databaseURL: "https://blago-a6270-default-rtdb.firebaseio.com", projectId: "blago-a6270", storageBucket: "blago-a6270.firebasestorage.app", messagingSenderId: "857823585303", appId: "1:857823585303:web:6ce2d1acff62b16ebd2852" });
+        db = firebase.database();
+
+        function initUser() {
+            const user = JSON.parse(localStorage.getItem('blago_user'));
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentUser = user;
+            document.getElementById('myName').textContent = user.name;
+            document.getElementById('myRole').textContent = user.role;
+            document.getElementById('ava').textContent = user.name[0];
+            if (user.role === 'admin') document.getElementById('adminBlock').classList.remove('hidden');
+        }
+
+        function generateMorningPost() {
+            const posts = [
+                "🌅 ДОБРОЕ УТРО, ДОРОГИЕ ДРУЗЬЯ!\n\n💪 Каждый новый день — это новая возможность помочь нашим защитникам!\n\nСегодня мы собираем средства на:\n✅ Поддержка подразделений на фронте\n✅ Закупка необходимых товаров\n✅ Организация логистики\n\n💝 Каждый рубль важен. Помогите нам помочь им!\n\nСпасибо за вашу поддержку! ❤️",
+                "☀️ С ДОБРЫМ УТРОМ!\n\nВолонтёры группы \"Благо дарить\" начинают новый день работы на помощь СВО!\n\n🎯 Текущие приоритеты:\n→ Рейс на юг запланирован на эту неделю\n→ Нужны средства на горючее и закупки\n→ Ищем водителей-волонтеров\n\nКто с нами? 💪",
+                "🌤️ УТРА ДОБРА!\n\nНашу группу поддержали уже более 500 благотворителей!\n\nВместе мы помогли:\n📦 Собрать 50 тонн гуманитарной помощи\n💶 Собрать средства на 30+ рейсов\n❤️ Поддержать десятки подразделений\n\nПомогите нам продолжить эту важную работу!"
+            ];
+            showPreview(posts[Math.floor(Math.random() * posts.length)]);
+        }
+
+        function generateNoonPost() {
+            const posts = [
+                "🍽️ ОБЕДЕННОЕ ВРЕМЯ!\n\nПока мы обедаем, наши защитники работают. Давайте помочь им!\n\n🎁 Срочно собираем на:\n→ Тактическая аптечка - 2500₽\n→ Теплые вещи - 1500₽\n→ Продукты и витамины - 3000₽\n\nВнесите свой вклад, даже небольшой!\nКаждый взнос считается.",
+                "☕ ОБЕДЕННЫЙ ПЕРЕРЫВ\n\nНа фронте перерывов нет. Поэтому нам нужно работать быстро!\n\n📊 Текущий статус сборов:\n✅ На рейс в Донецк: 45000₽ из 80000₽\n✅ На медикаменты: 12000₽ из 30000₽\n✅ Общий фонд: 23000₽\n\nПомогите нам достичь целей!",
+                "🤝 ОБЕДЕННОЕ СООБЩЕНИЕ\n\nСегодня к нам присоединились новые добровольцы!\nС каждым днём наша команда растёт.\n\nЕсли ты хочешь\n→ Собирать помощь\n→ Ездить в рейсы  \n→ Помогать в логистике\n\nМы ждём тебя! Напиши нам в личку."
+            ];
+            showPreview(posts[Math.floor(Math.random() * posts.length)]);
+        }
+
+        function generateShopPost() {
+            const posts = [
+                "🛒 МАГАЗИН НА ДИВАНЕ\n\nКупите необходимое нашим защитникам прямо сейчас!\n\n🔥 Топ товаров эту неделю:\n\n📌 Термобельё (Яндекс.Маркет) - от 1500₽\nhttps://example.com\n\n📌 Медицинская маска (Ozon) - от 500₽\nhttps://example.com\n\n📌 Энергетические батончики - от 800₽\nhttps://example.com\n\n✅ Отправим прямо на фронт!",
+                "🏪 ИНТЕРНЕТ-СУПЕРМАРКЕТ\n\nВсе товары, что нужны защитникам, можно заказать онлайн!\n\n💳 Популярный список:\n→ Портативный зарядник: от 800₽\n→ Фонарик налобный: от 600₽\n→ Перчатки зимние: от 500₽\n→ Витамины: от 300₽\n\nКупляйте, мы организуем доставку!",
+                "🛍️ ЛЕГКО КУПИТЬ - СЛОЖНЕЕ ДОСТАВИТЬ\n\nЭто не так! Мы организуем доставку любых товаров на фронт.\n\nЧто помогает нам больше всего:\n📦 Практичные вещи (термобельё, носки, перчатки)\n🍫 Питание и витамины\n🔦 Фонари и батарейки\n💊 Медикаменты по рецепту\n\nВыбирайте, заказывайте - мы привезём!"
+            ];
+            showPreview(posts[Math.floor(Math.random() * posts.length)]);
+        }
+
+        function generateFinanceReport() {
+            const posts = [
+                "💰 ФИНАНСОВЫЙ ОТЧЕТ\n\nПрозрачность в каждом рубле!\n\n📊 Итоги месяца:\nСобрано: 450,000₽\nИспользовано: 420,000₽\nВ резерве: 30,000₽\n\n📍 Куда пошли средства:\n→ Рейсы: 200,000₽\n→ Товары: 150,000₽\n→ Медикаменты: 70,000₽\n\n❤️ Спасибо каждому!\nВместе мы побеждаем!",
+                "📈 ПРОЗРАЧНАЯ ОТЧЕТНОСТЬ\n\nМы верим в открытость. Вот где ваши деньги:\n\n✅ Всего собрано в 2026 году: 1,250,000₽\n✅ Доставлено помощи: 80 тонн\n✅ Совершено рейсов: 28\n✅ Помощь получила: 42 подразделения\n\nЭта работа невозможна без вас!\nСпасибо за доверие! 🙏",
+                "💵 КАЖДЫЙ РУБЛЬ СЧИТАЕТСЯ\n\nУ нас нет скрытых расходов. Вот наши реальные цифры:\n\n🚚 Рейс на 100км: ~15,000₽ (бензин, водитель, риск)\n📦 Набор помощи на человека: ~3,000₽\n💊 Аптечка оказания первой помощи: ~5,000₽\n🔥 Обогреватель для позиции: ~8,000₽\n\nПожертвуйте осознанно. Помогайте эффективно!"
+            ];
+            showPreview(posts[Math.floor(Math.random() * posts.length)]);
+        }
+
+        function generateShipmentPost() {
+            const posts = [
+                "🚚 РЕЙС ОТПРАВЛЕН!\n\n✅ Сегодня наша колонна выезжает на фронт!\n\n📦 В кузовах:\n→ 2 тонны продуктов и витаминов\n→ 150 единиц медикаментов  \n→ Тактическое снаряжение\n→ Личные посылки от добровольцев\n\n🙏 Спасибо всем, кто помогал собирать!\nПолучатели ценят ваше внимание! ❤️",
+                "🚛 ВОТ ЭТО ДА!\n\nТолько что загрузили машину и выезжаем!\n\n📊 По цифрам этого рейса:\n→ Сумма собранных средств: 65,000₽\n→ Количество товара: 1.5 тонны\n→ Получателей: 3 подразделения\n→ Время на сборку: 2 недели\n\nПроверяем маршрут... едем! 💪",
+                "🎯 МИССИЯ: ФРОНТ\n\nНаша команда снова в пути!\n\n✈️ Маршрут:\nСанкт-Петербург → Сумы → Харьков\nОриентировочное время в пути: 2.5 суток\n\n👥 Команда:\n→ Водитель: Иван (опыт - 15 рейсов)\n→ Сопровождающие: 2 волонтера\n→ Координатор: Мария\n\nСледите за новостями! 🔔"
+            ];
+            showPreview(posts[Math.floor(Math.random() * posts.length)]);
+        }
+
+        function generateThankYouPost() {
+            const posts = [
+                "🙏 СПАСИБО НАШИМ ГЕРОЯМ\n\nСегодня мы хотим поблагодарить каждого, кто помогает!\n\n💖 Спасибо:\n→ Постоянным донорам\n→ Волонтёрам на сборках\n→ Водителям-добровольцам  \n→ Координаторам логистики\n\nВы делаете невозможное возможным!\n\nВместе мы спасаем жизни! ❤️",
+                "❤️ ВЫ ДЕЛАЕТЕ ЧУДЕСА\n\nКаждый день мы видим чудо благодарности от людей на фронте.\n\n📬 Вот что они нам пишут:\n\"Спасибо! Без вас мы бы не выжили\"\n\"Благодарим всех добровольцев!\"\n\"Вы лучше любого политика\"\n\"Молимся за каждого из вас\"\n\nВот ради этого мы работаем.\nМолимся за вас! 🕯️",
+                "🌟 ГЕРОИ НЕ НОСЯТ ПЛАЩИ\n\nОни ездят в фургонах с помощью.\nОни работают по ночам.\nОни рискуют ради других.\n\nВы - в сердце нашей миссии!\n\n🎖️ Почёт и слава:\n→ Волонтёрам группы \"Благо дарить\"\n→ Всем, кто делает взносы\n→ Защитникам на фронте\n\nВместе мы - одна команда! 💪"
+            ];
+            showPreview(posts[Math.floor(Math.random() * posts.length)]);
+        }
+
+        function showPreview(content) {
+            currentPreviewContent = content;
+            document.getElementById('previewContent').textContent = content;
+            document.getElementById('previewModal').classList.remove('hidden');
+        }
+
+        function closePreview() {
+            document.getElementById('previewModal').classList.add('hidden');
+        }
+
+        function copyToClipboard() {
+            navigator.clipboard.writeText(currentPreviewContent).then(() => {
+                alert('✅ Текст скопирован в буфер обмена!');
+            });
+        }
+
+        function downloadAsImage() {
+            alert('📸 Функция сохранения в изображение будет добавлена в следующем обновлении');
+        }
+
+        function schedulePost() {
+            const date = prompt('На какую дату расписать пост? (ДД.ММ.ГГГГ)');
+            if (date) {
+                db.ref('scheduled_posts').push({
+                    content: currentPreviewContent,
+                    scheduledDate: date,
+                    createdBy: currentUser.name,
+                    platform: 'universal',
+                    created: new Date().toISOString()
+                }, () => {
+                    alert('✅ Пост добавлен в расписание!');
+                    closePreview();
+                });
+            }
+        }
+
+        function openAllGenerators() {
+            alert('Функция быстрой генерации сразу всех постов активирована!');
+            generateMorningPost();
+        }
+
+        function logout() {
+            localStorage.removeItem('blago_user');
+            window.location.href = 'index.html';
+        }
+
+        initUser();
+    </script>
+</body>
+</html>

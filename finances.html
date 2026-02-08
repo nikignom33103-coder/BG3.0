@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учет финансов — Благо дарить v5.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f8fafc; color: #334155; }
+        .nav-link.active { background: #0f766e; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .tab-btn.active { border-color: #0f766e; color: #0f766e; border-bottom-width: 2px; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <aside class="w-64 bg-slate-900 text-white flex flex-col z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center font-bold">Б</div>
+            <span class="font-bold text-lg">Благо дарить</span>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+            <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Меню</p>
+            <a href="dashboard.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-chart-pie w-6"></i>Сводка</a>
+            <a href="finances.html" class="nav-link active flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition"><i class="fas fa-money-bill-wave w-6"></i>Финансы</a>
+            <a href="shipments.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-truck w-6"></i>Рейсы</a>
+            <a href="fundraising.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-piggy-bank w-6"></i>Сборы</a>
+            <a href="inventory.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-warehouse w-6"></i>Склад</a>
+            <a href="recipients.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-users w-6"></i>Получатели</a>
+            <a href="team.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-people-group w-6"></i>Команда</a>
+            <a href="press.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-newspaper w-6"></i>Пресс-центр</a>
+            <a href="reports.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-chart-bar w-6"></i>Отчеты</a>
+            <div id="adminBlock" class="hidden mt-6">
+                <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Админ</p>
+                <a href="users.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-user-shield w-6"></i>Доступ</a>
+                <a href="settings.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-cogs w-6"></i>Настройки</a>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+            <div id="ava" class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold"></div>
+            <div class="flex-1 min-w-0">
+                <p id="myName" class="text-sm font-bold truncate">...</p>
+                <p id="myRole" class="text-xs text-slate-400 truncate">...</p>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-white"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col bg-[#f1f5f9] overflow-hidden">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10 shadow-sm">
+            <div>
+                <h2 class="text-xl font-bold text-slate-800">Учет финансов v5.0</h2>
+                <p class="text-xs text-slate-500 mt-1">Управление приходами, расходами и переводами</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="openModal('in')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-emerald-700 transition shadow-lg shadow-emerald-500/30"><i class="fas fa-plus mr-2"></i>Приход</button>
+                <button onclick="openModal('out')" class="bg-amber-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-amber-700 transition shadow-lg shadow-amber-500/30"><i class="fas fa-minus mr-2"></i>Расход</button>
+                <button onclick="openModal('transfer')" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 transition shadow-lg shadow-blue-500/30"><i class="fas fa-exchange mr-2"></i>Перевод</button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8">
+            <!-- Financial Dashboard -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-slate-500 uppercase">Общий баланс</span>
+                        <i class="fas fa-wallet text-2xl text-emerald-600"></i>
+                    </div>
+                    <p id="totalBalance" class="text-3xl font-bold text-slate-800">0 ₽</p>
+                    <p class="text-xs text-slate-400 mt-2">Сумма всех кошельков</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-slate-500 uppercase">Приход (месяц)</span>
+                        <i class="fas fa-arrow-down text-2xl text-emerald-600"></i>
+                    </div>
+                    <p id="monthIncome" class="text-3xl font-bold text-slate-800">0 ₽</p>
+                    <p class="text-xs text-slate-400 mt-2">Текущий месяц</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-slate-500 uppercase">Расход (месяц)</span>
+                        <i class="fas fa-arrow-up text-2xl text-amber-600"></i>
+                    </div>
+                    <p id="monthExpense" class="text-3xl font-bold text-slate-800">0 ₽</p>
+                    <p class="text-xs text-slate-400 mt-2">Текущий месяц</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-xs font-bold text-slate-500 uppercase">Целевые сборы</span>
+                        <i class="fas fa-piggy-bank text-2xl text-blue-600"></i>
+                    </div>
+                    <p id="targetFunds" class="text-3xl font-bold text-slate-800">0 ₽</p>
+                    <p class="text-xs text-slate-400 mt-2">Активные сборы</p>
+                </div>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-200 mb-6 gap-6">
+                <button onclick="switchTab('wallets')" id="tabWallets" class="tab-btn active pb-3 px-2 text-sm font-bold transition">💳 Кошельки</button>
+                <button onclick="switchTab('donors')" id="tabDonors" class="tab-btn pb-3 px-2 text-sm font-bold transition">🤝 Благотворители</button>
+                <button onclick="switchTab('transactions')" id="tabTransactions" class="tab-btn pb-3 px-2 text-sm font-bold transition">📊 Транзакции</button>
+            </div>
+
+            <!-- Wallets Tab -->
+            <div id="walletsTab" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-4">Кошелек</th>
+                            <th class="px-6 py-4">Баланс</th>
+                            <th class="px-6 py-4">За месяц</th>
+                            <th class="px-6 py-4">Статус</th>
+                            <th class="px-6 py-4 text-right">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="walletsTable" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                </table>
+            </div>
+
+            <!-- Donors Tab -->
+            <div id="donorsTab" class="hidden bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-4">Благотворитель</th>
+                            <th class="px-6 py-4">Тип</th>
+                            <th class="px-6 py-4">Сумма</th>
+                            <th class="px-6 py-4">Последний взнос</th>
+                            <th class="px-6 py-4 text-right">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="donorsTable" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                </table>
+            </div>
+
+            <!-- Transactions Tab -->
+            <div id="transactionsTab" class="hidden bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-4">Дата</th>
+                            <th class="px-6 py-4">Тип</th>
+                            <th class="px-6 py-4">Описание</th>
+                            <th class="px-6 py-4">Сумма</th>
+                            <th class="px-6 py-4">Ответственный</th>
+                            <th class="px-6 py-4 text-right">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactionsTable" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Transaction Modal -->
+    <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="modalTitle" class="font-bold text-xl text-slate-800">Новая транзакция</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            
+            <form id="transactionForm" onsubmit="event.preventDefault(); saveTransaction();" class="space-y-4">
+                <input type="hidden" id="transactionType" name="type">
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Дата</label>
+                    <input type="date" name="date" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                </div>
+
+                <div id="walletField">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Кошелек</label>
+                    <select name="wallet" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                        <option value="">Выберите кошелек</option>
+                        <option value="tbank">Т-Банк</option>
+                        <option value="sber">Сбербанк</option>
+                        <option value="cash">Наличные</option>
+                        <option value="spasibo">Бонусы Спасибо</option>
+                    </select>
+                </div>
+
+                <div id="donorField" class="hidden">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Благотворитель</label>
+                    <input type="text" name="donor" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Имя или организация">
+                </div>
+
+                <div id="categoryField">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Категория</label>
+                    <select name="category" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                        <option value="">Выберите категорию</option>
+                        <option value="trip">На рейс</option>
+                        <option value="goods">На товары</option>
+                        <option value="general">Общий сбор</option>
+                        <option value="other">Прочее</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Сумма (₽)</label>
+                    <input type="number" name="amount" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="0" required step="0.01">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Описание</label>
+                    <textarea name="description" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Опишите транзакцию" rows="2"></textarea>
+                </div>
+
+                <button type="submit" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let db;
+        let currentUser;
+
+        firebase.initializeApp({ apiKey: "AIzaSyDRMyiouLjL6oyQK5TIpr69b8mvCcq4uLE", authDomain: "blago-a6270.firebaseapp.com", databaseURL: "https://blago-a6270-default-rtdb.firebaseio.com", projectId: "blago-a6270", storageBucket: "blago-a6270.firebasestorage.app", messagingSenderId: "857823585303", appId: "1:857823585303:web:6ce2d1acff62b16ebd2852" });
+        db = firebase.database();
+
+        function initUser() {
+            const user = JSON.parse(localStorage.getItem('blago_user'));
+            if (!user) { window.location.href = 'index.html'; return; }
+            currentUser = user;
+            document.getElementById('myName').textContent = user.name;
+            document.getElementById('myRole').textContent = user.role;
+            document.getElementById('ava').textContent = user.name[0];
+            if (user.role === 'admin') document.getElementById('adminBlock').classList.remove('hidden');
+            loadFinanceData();
+        }
+
+        function loadFinanceData() {
+            db.ref('finances').once('value', snap => {
+                const finances = snap.val() || {};
+                renderFinances(finances);
+            });
+        }
+
+        function renderFinances(finances) {
+            let total = 0, monthIncome = 0, monthExpense = 0;
+            
+            Object.values(finances).forEach(t => {
+                total += (t.type === 'in' ? 1 : -1) * (t.amount || 0);
+                const tDate = new Date(t.date);
+                const now = new Date();
+                if (tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear()) {
+                    if (t.type === 'in') monthIncome += t.amount || 0;
+                    if (t.type === 'out') monthExpense += t.amount || 0;
+                }
+            });
+
+            document.getElementById('totalBalance').textContent = total.toLocaleString('ru-RU') + ' ₽';
+            document.getElementById('monthIncome').textContent = monthIncome.toLocaleString('ru-RU') + ' ₽';
+            document.getElementById('monthExpense').textContent = monthExpense.toLocaleString('ru-RU') + ' ₽';
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('[id$="Tab"]').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active', 'border-b-2'));
+            event.target.classList.add('active', 'border-b-2');
+        }
+
+        function openModal(type) {
+            const modal = document.getElementById('modal');
+            const form = document.getElementById('transactionForm');
+            form.reset();
+            
+            document.getElementById('transactionType').value = type;
+            document.getElementById('modalTitle').textContent = 
+                type === 'in' ? 'Добавить приход' : 
+                type === 'out' ? 'Добавить расход' : 'Добавить перевод';
+
+            if (type === 'in') {
+                document.getElementById('donorField').classList.remove('hidden');
+            } else {
+                document.getElementById('donorField').classList.add('hidden');
+            }
+
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        function saveTransaction() {
+            const form = document.getElementById('transactionForm');
+            const data = new FormData(form);
+            const transaction = {
+                type: document.getElementById('transactionType').value,
+                date: data.get('date'),
+                wallet: data.get('wallet'),
+                donor: data.get('donor') || null,
+                category: data.get('category'),
+                amount: parseFloat(data.get('amount')),
+                description: data.get('description'),
+                user: currentUser.name,
+                timestamp: Date.now()
+            };
+
+            db.ref('finances').push(transaction, () => {
+                closeModal();
+                loadFinanceData();
+                showToast('Транзакция сохранена');
+            });
+        }
+
+        function logout() {
+            localStorage.removeItem('blago_user');
+            window.location.href = 'index.html';
+        }
+
+        function showToast(msg) {
+            alert(msg);
+        }
+
+        initUser();
+    </script>
+</body>
+</html>
