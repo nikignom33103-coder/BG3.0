@@ -360,6 +360,57 @@
             backdateField.classList.toggle('hidden', !checkbox.checked);
         }
 
+        function getWarehouseName(code) {
+            const names = {'sof': 'Склад Софийская', 'pes': 'Склад Песочный', 'temp': 'Временное хранение', 'damaged': 'Бракованные'};
+            return names[code] || code;
+        }
+        
+        function getSourceLabel(code) {
+            const labels = {'donation': 'Пожертвование', 'purchase': 'Закупка', 'transfer': 'Перемещение', 'return': 'Возврат'};
+            return labels[code] || code;
+        }
+        
+        function getCategoryIcon(category) {
+            const icons = {'clothing': '👕', 'food': '🍜', 'medicine': '💊', 'hygiene': '🧼', 'kids': '🧸', 'other': '📦'};
+            return icons[category] || '📦';
+        }
+        
+        function viewInventoryItem(id) {
+            const items = Array.isArray(inventory) ? inventory : Object.entries(inventory || {}).map(([k,v]) => ({...v, firebaseId: k}));
+            const item = items.find(x => (x.firebaseId || x.id) === id);
+            if (!item) {
+                alert('❌ Товар не найден');
+                return;
+            }
+            alert(`📦 ${item.name}\\n\\n` +
+                  `Остаток: ${item.quantity} ${item.unit}\\n` +
+                  `Категория: ${item.category || '-'}\\n` +
+                  `Склад: ${getWarehouseName(item.warehouse || 'sof')}\\n` +
+                  `Ответственный: ${item.responsible || '-'}\\n` +
+                  `Источник: ${getSourceLabel(item.source || 'donation')}\\n` +
+                  `Примечания: ${item.notes || '-'}`);
+        }
+        
+        function addInventoryOperation(id) {
+            const items = Array.isArray(inventory) ? inventory : Object.values(inventory || {});
+            const item = items.find(x => (x.firebaseId || x.id) === id || x.id === parseInt(id));
+            if (!item) {
+                alert('❌ Товар не найден');
+                return;
+            }
+            
+            const form = document.getElementById('opForm');
+            form.reset();
+            form.name.value = item.name;
+            form.unit.value = item.unit;
+            form.category.value = item.category || 'другое';
+            form.warehouse.value = item.warehouse || 'sof';
+            form.type.value = 'in';
+            form.date.value = new Date().toISOString().split('T')[0];
+            
+            openModal('in');
+        }
+
         function openModal(type){
             document.getElementById('modal').classList.remove('hidden');
             document.getElementById('opType').value = type;
@@ -389,9 +440,12 @@
         }
 
         function editInventoryItem(id) {
-            const items = Array.isArray(inventory) ? inventory : Object.values(inventory || {});
-            const item = items.find(x => (x.firebaseId || x.id) === id || x.id === parseInt(id));
-            if(!item) return;
+            const items = Array.isArray(inventory) ? inventory : Object.entries(inventory || {}).map(([k,v]) => ({...v, firebaseId: k}));
+            const item = items.find(x => (x.firebaseId || x.id) === id);
+            if(!item) {
+                alert('❌ Товар не найден');
+                return;
+            }
             
             // Заполнить форму текущими данными
             const form = document.getElementById('opForm');
@@ -418,15 +472,20 @@
             e.preventDefault();
             const f = document.getElementById('opForm');
             
+            // Validation
+            if (!f.name.value.trim()) { alert('❌ Укажите название товара'); return; }
+            if (!f.qty.value || parseInt(f.qty.value) < 0) { alert('❌ Укажите корректное количество'); return; }
+            if (!f.warehouse.value) { alert('❌ Выберите склад'); return; }
+            
             const updatedItem = {
-                name: f.name.value,
+                name: f.name.value.trim(),
                 quantity: parseInt(f.qty.value),
                 unit: f.unit.value,
                 category: f.category.value,
                 warehouse: f.warehouse.value,
-                responsible: f.responsible.value,
+                responsible: f.responsible.value.trim(),
                 source: f.source.value,
-                notes: f.notes.value,
+                notes: f.notes.value.trim(),
                 updatedAt: new Date().toLocaleString('ru-RU'),
                 updatedBy: JSON.parse(localStorage.getItem('blago_user')).name
             };
@@ -434,23 +493,33 @@
             try {
                 await db.ref('inventory').child(id).update(updatedItem);
                 
-                alert(`✅ Товар успешно обновлен!`);
+                alert(`✅ Товар "${updatedItem.name}" успешно обновлен!`);
                 closeModal();
                 loadInventory();
                 
             } catch (error) {
-                console.error('Ошибка при обновлении:', error);
-                alert('❌ Произошла ошибка при обновлении товара');
+                console.error('Ошибка Firebase при обновлении:', error);
+                alert(`❌ Ошибка обновления: ${error.message || 'неизвестная ошибка'}`);
             }
         }
 
         function deleteInventoryItem(id) {
             const items = Array.isArray(inventory) ? inventory : Object.values(inventory || {});
             const item = items.find(x => (x.firebaseId || x.id) === id || x.id === parseInt(id));
-            if(confirm(`Удалить товар "${item?.name}" из склада?`)) {
-                db.ref('inventory').child(id).remove(() => {
-                    alert('✅ Товар успешно удален из склада');
-                    loadInventory();
+            
+            if (!item) {
+                alert('❌ Товар не найден');
+                return;
+            }
+            
+            if(confirm(`Удалить товар "${item.name}" из склада? Это действие необратимо.`)) {
+                db.ref('inventory').child(id).remove((error) => {
+                    if (error) {
+                        alert('❌ Ошибка при удалении: ' + error.message);
+                    } else {
+                        alert('✅ Товар успешно удален из склада');
+                        loadInventory();
+                    }
                 });
             }
         }
@@ -639,8 +708,12 @@
         }
 
         function printInventoryDoc(id) {
-            const item = inventory.find(x => x.id === id);
-            if(!item) return;
+            const items = Array.isArray(inventory) ? inventory : Object.values(inventory || {});
+            const item = items.find(x => (x.firebaseId || x.id) === id || x.id === parseInt(id));
+            if(!item) {
+                alert('❌ Товар не найден');
+                return;
+            }
             
             const w = window.open('','','width=900,height=1000');
             w.document.write(`

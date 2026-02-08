@@ -246,6 +246,9 @@
             loadFinanceData();
         }
 
+        let cachedDonors = null;
+        let donorsLastUpdated = 0;
+
         function loadFinanceData() {
             db.ref('finances').once('value', snap => {
                 const finances = snap.val() || {};
@@ -462,6 +465,18 @@
             const donorSelect = document.getElementById('donor');
             donorSelect.innerHTML = '<option value="">Выберите из списка</option>';
             
+            // Кэширование: обновлять каждые 5 минут
+            const now = Date.now();
+            if (cachedDonors && (now - donorsLastUpdated) < 300000) {
+                cachedDonors.forEach(donor => {
+                    const option = document.createElement('option');
+                    option.value = donor;
+                    option.textContent = donor;
+                    donorSelect.appendChild(option);
+                });
+                return;
+            }
+            
             db.ref('finances').once('value', snap => {
                 const finances = snap.val() || {};
                 const donors = new Set();
@@ -472,12 +487,18 @@
                     }
                 });
                 
-                donors.forEach(donor => {
+                cachedDonors = Array.from(donors);
+                donorsLastUpdated = now;
+                
+                cachedDonors.forEach(donor => {
                     const option = document.createElement('option');
                     option.value = donor;
                     option.textContent = donor;
                     donorSelect.appendChild(option);
                 });
+            }, (error) => {
+                console.error('Ошибка при загрузке благотворителей:', error);
+                showToast('⚠️ Ошибка при загрузке списка благотворителей');
             });
         }
 

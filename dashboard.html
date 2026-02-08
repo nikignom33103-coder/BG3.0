@@ -280,26 +280,39 @@
 
         // Enhanced Statistics
         function updateStats() {
-            // Financial stats
+            // Financial stats - ТОЛЬКО текущий месяц
             db.ref('finances').on('value', s => {
                 const finances = s.val() || {};
                 let balance = 0, income = 0, expense = 0;
+                const now = new Date();
+                const currentMonth = now.getMonth();
+                const currentYear = now.getFullYear();
                 
                 Object.values(finances).forEach(t => {
-                    if (!t) return;
-                    const amount = t.amount || 0;
-                    if (t.type === 'in') {
-                        balance += amount;
-                        income += amount;
-                    } else if (t.type === 'out') {
-                        balance -= amount;
-                        expense += amount;
+                    if (!t || !t.date) return;
+                    
+                    try {
+                        const tDate = new Date(t.date);
+                        // Проверяем только транзакции текущего месяца
+                        if (tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear) {
+                            const amount = parseFloat(t.amount) || 0;
+                            if (t.type === 'in') {
+                                income += amount;
+                            } else if (t.type === 'out') {
+                                expense += amount;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Ошибка парсинга даты:', t.date);
                     }
                 });
                 
+                balance = income - expense;
                 document.getElementById('statBalance').innerText = balance.toLocaleString('ru-RU') + ' ₽';
                 document.getElementById('statIncome').innerText = `Доход: ${income.toLocaleString('ru-RU')} ₽`;
                 document.getElementById('statExpense').innerText = `Расход: ${expense.toLocaleString('ru-RU')} ₽`;
+            }, (error) => {
+                console.error('Ошибка при загрузке финансов:', error);
             });
 
             // Shipments stats
