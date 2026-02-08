@@ -133,28 +133,52 @@
         function saveRec(e){
             e.preventDefault();
             const f = e.target;
+            
+            const name = f.name.value.trim();
+            const unit = f.unit.value.trim();
+            const contact = f.contact.value.trim();
+            
+            if (!name || !unit || !contact) {
+                showToast('❌ Все поля обязательны');
+                return;
+            }
+            
+            const user = JSON.parse(localStorage.getItem('blago_user'));
             const item = {
                 id: Date.now(),
-                name: f.name.value,
-                unit: f.unit.value,
-                contact: f.contact.value,
-                createdBy: user.name
+                name: name,
+                unit: unit,
+                contact: contact,
+                createdBy: user.name,
+                createdAt: new Date().toISOString()
             };
-            db.ref('recipients').once('value').then(snap => {
-                const list = snap.val() || [];
-                list.push(item);
-                db.ref('recipients').set(list);
+            
+            db.ref('recipients').push(item, (err) => {
+                if (err) {
+                    showToast('❌ Ошибка: ' + err.message);
+                } else {
+                    showToast('✅ Получатель добавлен');
+                    closeModal();
+                    loadRecipients();
+                }
             });
-            closeModal();
         }
 
-        function del(id){
-            if(confirm('Удалить получателя?')) {
-                db.ref('recipients').once('value').then(snap => {
-                    const list = snap.val().filter(x => x.id !== id);
-                    db.ref('recipients').set(list);
+        function delRec(id){
+            if(confirm('Удалить получателя? Это действие необратимо')) {
+                db.ref('recipients').child(id).remove(() => {
+                    showToast('✅ Получатель удален');
+                    loadRecipients();
                 });
             }
+        }
+        
+        function showToast(msg) {
+            alert(msg);
+        }
+        
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
         }
     </script>
 </body>

@@ -173,12 +173,12 @@
                 
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Дата</label>
-                    <input type="date" name="date" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                    <input type="date" id="date" name="date" class="w-full p-3 border border-slate-200 rounded-xl" required>
                 </div>
 
                 <div id="walletField">
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Кошелек</label>
-                    <select name="wallet" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                    <select id="wallet" name="wallet" class="w-full p-3 border border-slate-200 rounded-xl" required>
                         <option value="">Выберите кошелек</option>
                         <option value="tbank">Т-Банк</option>
                         <option value="sber">Сбербанк</option>
@@ -189,12 +189,12 @@
 
                 <div id="donorField" class="hidden">
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Благотворитель</label>
-                    <input type="text" name="donor" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Имя или организация">
+                    <input type="text" id="donor" name="donor" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Имя или организация">
                 </div>
 
                 <div id="categoryField">
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Категория</label>
-                    <select name="category" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                    <select id="category" name="category" class="w-full p-3 border border-slate-200 rounded-xl" required>
                         <option value="">Выберите категорию</option>
                         <option value="trip">На рейс</option>
                         <option value="goods">На товары</option>
@@ -205,12 +205,12 @@
 
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Сумма (₽)</label>
-                    <input type="number" name="amount" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="0" required step="0.01">
+                    <input type="number" id="amount" name="amount" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="0" required step="0.01">
                 </div>
 
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Описание</label>
-                    <textarea name="description" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Опишите транзакцию" rows="2"></textarea>
+                    <textarea id="description" name="description" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Опишите транзакцию" rows="2"></textarea>
                 </div>
 
                 <button type="submit" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition">Сохранить</button>
@@ -245,8 +245,10 @@
 
         function renderFinances(finances) {
             let total = 0, monthIncome = 0, monthExpense = 0;
+            let wallets = {}, donors = {}, transactions = [];
             
-            Object.values(finances).forEach(t => {
+            Object.entries(finances).forEach(([id, t]) => {
+                if (!t) return;
                 total += (t.type === 'in' ? 1 : -1) * (t.amount || 0);
                 const tDate = new Date(t.date);
                 const now = new Date();
@@ -254,11 +256,111 @@
                     if (t.type === 'in') monthIncome += t.amount || 0;
                     if (t.type === 'out') monthExpense += t.amount || 0;
                 }
+                
+                // Group by wallets
+                if (t.wallet) {
+                    if (!wallets[t.wallet]) {
+                        wallets[t.wallet] = { balance: 0, monthTotal: 0, count: 0 };
+                    }
+                    wallets[t.wallet].balance += (t.type === 'in' ? 1 : -1) * (t.amount || 0);
+                    if (tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear()) {
+                        wallets[t.wallet].monthTotal += t.amount || 0;
+                    }
+                    wallets[t.wallet].count++;
+                }
+                
+                // Group by donors
+                if (t.donor && t.type === 'in') {
+                    if (!donors[t.donor]) {
+                        donors[t.donor] = { total: 0, lastDate: t.date, type: 'physical' };
+                    }
+                    donors[t.donor].total += t.amount || 0;
+                    donors[t.donor].lastDate = t.date;
+                }
+                
+                // Add to transactions
+                transactions.push({ id, ...t });
             });
 
             document.getElementById('totalBalance').textContent = total.toLocaleString('ru-RU') + ' ₽';
             document.getElementById('monthIncome').textContent = monthIncome.toLocaleString('ru-RU') + ' ₽';
             document.getElementById('monthExpense').textContent = monthExpense.toLocaleString('ru-RU') + ' ₽';
+            
+            fillWalletsTable(wallets);
+            fillDonorsTable(donors);
+            fillTransactionsTable(transactions);
+        }
+
+        function fillWalletsTable(wallets) {
+            const table = document.getElementById('walletsTable');
+            table.innerHTML = '';
+            const walletNames = { tbank: 'Т-Банк 🏦', sber: 'Сбербанк 🏦', cash: 'Наличные 💵', spasibo: 'Бонусы Спасибо ✨' };
+            
+            Object.entries(wallets).forEach(([key, data]) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50 transition border-0';
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-bold">${walletNames[key] || key}</td>
+                    <td class="px-6 py-4 text-emerald-600 font-bold">${data.balance.toLocaleString('ru-RU')} ₽</td>
+                    <td class="px-6 py-4">${data.monthTotal.toLocaleString('ru-RU')} ₽</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-bold">Активен</span></td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="alert('Статистика: ${data.count} операций')" class="text-blue-600 text-sm font-bold hover:underline">Статистика →</button>
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+        }
+
+        function fillDonorsTable(donors) {
+            const table = document.getElementById('donorsTable');
+            table.innerHTML = '';
+            
+            Object.entries(donors).forEach(([name, data]) => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50 transition border-0';
+                row.innerHTML = `
+                    <td class="px-6 py-4 font-bold">${name}</td>
+                    <td class="px-6 py-4"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">Благотворитель</span></td>
+                    <td class="px-6 py-4 font-bold text-emerald-600">${data.total.toLocaleString('ru-RU')} ₽</td>
+                    <td class="px-6 py-4 text-sm text-slate-500">${data.lastDate}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="alert('Благодарность отправлена ${name}')" class="text-purple-600 text-sm font-bold hover:underline">Благодарить →</button>
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+        }
+
+        function fillTransactionsTable(transactions) {
+            const table = document.getElementById('transactionsTable');
+            table.innerHTML = '';
+            
+            transactions.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 50).forEach(t => {
+                const typeIcon = t.type === 'in' ? '📥 Приход' : t.type === 'out' ? '📤 Расход' : '🔄 Перевод';
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-slate-50 transition border-0';
+                row.innerHTML = `
+                    <td class="px-6 py-4 text-sm">${t.date}</td>
+                    <td class="px-6 py-4"><span class="text-sm font-bold">${typeIcon}</span></td>
+                    <td class="px-6 py-4 text-sm">${t.description || '—'}</td>
+                    <td class="px-6 py-4 font-bold ${t.type === 'in' ? 'text-emerald-600' : 'text-red-600'}">${(t.type === 'in' ? '+' : '-')}${t.amount.toLocaleString('ru-RU')} ₽</td>
+                    <td class="px-6 py-4 text-sm">${t.user}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="deleteTransaction('${t.id}')" class="text-red-600 text-sm font-bold hover:underline">Удалить</button>
+                    </td>
+                `;
+                table.appendChild(row);
+            });
+        }
+
+        function deleteTransaction(id) {
+            if (confirm('Удалить транзакцию?')) {
+                db.ref('finances').child(id).remove(() => {
+                    loadFinanceData();
+                    showToast('Транзакция удалена');
+                });
+            }
         }
 
         function switchTab(tab) {
@@ -294,23 +396,43 @@
         function saveTransaction() {
             const form = document.getElementById('transactionForm');
             const data = new FormData(form);
+            
+            const amount = parseFloat(data.get('amount'));
+            if (!amount || amount <= 0) {
+                showToast('❌ Укажите сумму > 0');
+                return;
+            }
+
             const transaction = {
                 type: document.getElementById('transactionType').value,
                 date: data.get('date'),
                 wallet: data.get('wallet'),
-                donor: data.get('donor') || null,
+                donor: data.get('donor') || '',
                 category: data.get('category'),
-                amount: parseFloat(data.get('amount')),
-                description: data.get('description'),
-                user: currentUser.name,
+                amount: amount,
+                description: data.get('description') || '',
+                user: JSON.parse(localStorage.getItem('blago_user')).name || 'Неизвестный',
                 timestamp: Date.now()
             };
 
-            db.ref('finances').push(transaction, () => {
-                closeModal();
-                loadFinanceData();
-                showToast('Транзакция сохранена');
+            db.ref('finances').push(transaction, (err) => {
+                if (err) {
+                    showToast('❌ Ошибка: ' + err.message);
+                } else {
+                    closeModal();
+                    loadFinanceData();
+                    showToast('✅ Транзакция сохранена');
+                }
             });
+        }
+
+        function deleteTransaction(id) {
+            if (confirm('Удалить транзакцию?')) {
+                db.ref('finances').child(id).remove(() => {
+                    loadFinanceData();
+                    showToast('✅ Транзакция удалена');
+                });
+            }
         }
 
         function logout() {

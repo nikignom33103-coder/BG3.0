@@ -298,6 +298,24 @@
             document.getElementById('fundModal').classList.add('hidden');
         }
 
+        function editFund(id) {
+            alert('📝 Редактирование сбора ' + id);
+            openFundModal();
+        }
+
+        function deleteFund(id) {
+            if (confirm('Удалить сбор? Это действие необратимо')) {
+                db.ref('fundraisings').child(id).remove(() => {
+                    loadData();
+                    showToast('✅ Сбор удален');
+                });
+            }
+        }
+
+        function viewOrder(id) {
+            alert('📋 Просмотр заказа ' + id);
+        }
+
         function openOrderModal() {
             document.getElementById('orderForm').reset();
             document.getElementById('orderModal').classList.remove('hidden');
@@ -311,20 +329,33 @@
             const form = document.getElementById('fundForm');
             const data = new FormData(form);
             
+            const title = data.get('title');
+            const target = parseFloat(data.get('target'));
+            
+            if (!title || !target || target <= 0) {
+                showToast('❌ Заполните название и цель сбора');
+                return;
+            }
+            
+            const user = JSON.parse(localStorage.getItem('blago_user'));
             db.ref('fundraisings').push({
-                title: data.get('title'),
+                title: title,
                 type: data.get('type'),
-                target: parseFloat(data.get('target')),
+                target: target,
                 description: data.get('description'),
                 deadline: data.get('deadline'),
                 collected: 0,
                 status: 'active',
                 created: new Date().toISOString(),
-                createdBy: currentUser.name
-            }, () => {
-                closeFundModal();
-                loadData();
-                alert('Сбор создан');
+                createdBy: user.name
+            }, (err) => {
+                if (err) {
+                    showToast('❌ Ошибка: ' + err.message);
+                } else {
+                    closeFundModal();
+                    loadData();
+                    showToast('✅ Сбор создан успешно');
+                }
             });
         }
 
@@ -332,24 +363,41 @@
             const form = document.getElementById('orderForm');
             const data = new FormData(form);
             
+            const recipient = data.get('recipient');
+            const budget = parseFloat(data.get('budget'));
+            
+            if (!recipient || !budget || budget <= 0) {
+                showToast('❌ Заполните получателя и бюджет');
+                return;
+            }
+            
+            const user = JSON.parse(localStorage.getItem('blago_user'));
             db.ref('orders').push({
-                recipient: data.get('recipient'),
+                recipient: recipient,
                 category: data.get('category'),
                 items: data.get('items'),
-                budget: parseFloat(data.get('budget')),
+                budget: budget,
                 status: 'new',
                 created: new Date().toISOString(),
-                createdBy: currentUser.name
-            }, () => {
-                closeOrderModal();
-                loadData();
-                alert('Заказ создан');
+                createdBy: user.name
+            }, (err) => {
+                if (err) {
+                    showToast('❌ Ошибка: ' + err.message);
+                } else {
+                    closeOrderModal();
+                    loadData();
+                    showToast('✅ Заказ создан успешно');
+                }
             });
         }
 
         function logout() {
             localStorage.removeItem('blago_user');
             window.location.href = 'index.html';
+        }
+
+        function showToast(msg) {
+            alert(msg);
         }
 
         initUser();
