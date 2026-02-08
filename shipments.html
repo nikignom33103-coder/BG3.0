@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Реестр отправок — Благо дарить v5.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f8fafc; color: #334155; }
+        .nav-link.active { background: #0f766e; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <aside class="w-64 bg-slate-900 text-white flex flex-col z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center font-bold">Б</div>
+            <span class="font-bold text-lg">Благо дарить</span>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+            <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Меню</p>
+            <a href="dashboard.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-chart-pie w-6"></i>Сводка</a>
+            <a href="shipments.html" class="nav-link active flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition"><i class="fas fa-truck w-6"></i>Отправки</a>
+            <a href="recipients.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-users w-6"></i>Получатели</a>
+            <a href="inventory.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-warehouse w-6"></i>Склад</a>
+            <a href="team.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-people-group w-6"></i>Команда CRM</a>
+            <a href="reports.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-file-contract w-6"></i>Отчетность</a>
+            <div id="adminBlock" class="hidden mt-6">
+                <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Админ</p>
+                <a href="users.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-user-shield w-6"></i>Доступ</a>
+                <a href="settings.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-cogs w-6"></i>Настройки</a>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+            <div id="ava" class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold"></div>
+            <div class="flex-1 min-w-0">
+                <p id="myName" class="text-sm font-bold truncate">...</p>
+                <p id="myRole" class="text-xs text-slate-400 truncate">...</p>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-white"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col bg-[#f1f5f9] overflow-hidden">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10 shadow-sm">
+            <h2 class="text-xl font-bold text-slate-800">Реестр отправок v5.0</h2>
+            <button onclick="openModal()" class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:shadow-emerald-500/30 transition flex items-center gap-2">
+                <i class="fas fa-plus"></i> Создать отправку
+            </button>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                            <th class="px-6 py-4">Дата</th>
+                            <th class="px-6 py-4">Получатель</th>
+                            <th class="px-6 py-4">Груз</th>
+                            <th class="px-6 py-4">Ответственный</th>
+                            <th class="px-6 py-4">Подписи</th>
+                            <th class="px-6 py-4 text-right">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Form -->
+    <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-xl text-slate-800">Новая отправка</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <form id="shipForm" onsubmit="event.preventDefault(); showSignModal();" class="space-y-4">
+                <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                    <div class="flex items-center gap-3 mb-3">
+                        <input type="checkbox" name="backdate" id="backdate" class="w-5 h-5 text-blue-600 rounded" onchange="toggleBackdate()">
+                        <label for="backdate" class="text-sm font-bold text-blue-700 cursor-pointer">Внести данные задним числом</label>
+                    </div>
+                    <div id="dateFields" class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Дата отправки</label>
+                            <input type="date" name="date" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                        </div>
+                        <div id="backdateField" class="hidden">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Фактическая дата внесения</label>
+                            <input type="date" name="entryDate" class="w-full p-3 border border-slate-200 rounded-xl">
+                            <p class="text-xs text-slate-500 mt-1">Дата, когда фактически была внесена запись в систему</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Получатель</label>
+                    <select name="rec" id="recSelect" class="w-full p-3 border border-slate-200 rounded-xl" required></select>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Описание груза</label>
+                    <textarea name="items" class="w-full p-3 border border-slate-200 rounded-xl h-24" placeholder="Подробное описание отправляемых товаров..." required></textarea>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Ответственный за отправку</label>
+                        <input name="responsible" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="ФИО ответственного" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Транспорт</label>
+                        <select name="transport" class="w-full p-3 border border-slate-200 rounded-xl">
+                            <option value="personal">Личный транспорт</option>
+                            <option value="volunteer">Транспорт волонтера</option>
+                            <option value="delivery">Служба доставки</option>
+                            <option value="other">Другое</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Примечания</label>
+                    <textarea name="notes" class="w-full p-3 border border-slate-200 rounded-xl h-20" placeholder="Дополнительная информация, особые указания..."></textarea>
+                </div>
+                
+                <button class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition">
+                    <i class="fas fa-arrow-right mr-2"></i>Перейти к подписанию
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Signing Modal -->
+    <div id="signModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div class="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fas fa-fingerprint"></i>
+            </div>
+            <h3 class="font-bold text-xl text-slate-800 mb-2">Подписание документа</h3>
+            <p class="text-sm text-slate-500 mb-6">Подтвердите отгрузку материальных ценностей. Будет сформирован юридически значимый документ.</p>
+            <div class="p-3 bg-slate-50 rounded-xl mb-6 text-left">
+                <p class="text-xs text-slate-400 font-bold uppercase">Подписант</p>
+                <p class="font-bold text-slate-700" id="signName">...</p>
+                <p class="text-xs text-slate-500" id="signRole">...</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('signModal').classList.add('hidden')" class="flex-1 py-2 border border-slate-200 rounded-lg font-bold text-slate-600">Отмена</button>
+                <button onclick="confirmSave()" class="flex-1 py-2 bg-blue-600 text-white rounded-lg font-bold shadow-lg shadow-blue-500/30">Подписать и Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyDRMyiouLjL6oyQK5TIpr69b8mvCcq4uLE", authDomain: "blago-a6270.firebaseapp.com", databaseURL: "https://blago-a6270-default-rtdb.firebaseio.com", projectId: "blago-a6270", storageBucket: "blago-a6270.firebasestorage.app", messagingSenderId: "857823585303", appId: "1:857823585303:web:6ce2d1acff62b16ebd2852", measurementId: "G-YHWJPH8TF9" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const user = JSON.parse(localStorage.getItem('blago_user'));
+        if(!user) window.location.href = 'index.html';
+        
+        document.getElementById('myName').innerText = user.name;
+        document.getElementById('myRole').innerText = user.role;
+        document.getElementById('ava').innerText = user.name[0];
+        if(user.role==='admin') document.getElementById('adminBlock').classList.remove('hidden');
+        function logout(){localStorage.removeItem('blago_user'); window.location.href='index.html';}
+
+        let recipients = [];
+        db.ref('recipients').on('value', s => {
+            recipients = s.val() || [];
+            document.getElementById('recSelect').innerHTML = recipients.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+        });
+
+        db.ref('shipments').on('value', s => {
+            const list = s.val() || [];
+            document.getElementById('tableBody').innerHTML = list.reverse().map(x => {
+                const recipient = recipients.find(r => r.id == x.recipientId);
+                const signatures = x.signatures || {};
+                const hasCreatorSignature = signatures.creator && signatures.creator.status === 'signed';
+                const hasApproverSignature = signatures.approver && signatures.approver.status === 'signed';
+                const hasExecutorSignature = signatures.executor && signatures.executor.status === 'signed';
+                
+                return `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                        <td class="px-6 py-4">
+                            <div class="font-bold text-slate-800">${x.date}</div>
+                            ${x.entryDate ? `<div class="text-xs text-slate-500">Записано: ${x.entryDate}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="font-medium text-slate-800">${recipient?.name || 'Неизвестный'}</div>
+                            ${recipient?.address ? `<div class="text-xs text-slate-500">${recipient.address}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-slate-600 max-w-xs truncate">${x.items}</div>
+                            ${x.transport ? `<div class="text-xs text-slate-500">Транспорт: ${x.transport}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-slate-700">${x.responsible || 'Не указан'}</div>
+                            ${x.createdBy ? `<div class="text-xs text-slate-500">Создал: ${x.createdBy}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-col gap-1">
+                                ${hasCreatorSignature ? 
+                                    `<span class="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-700">
+                                        <i class="fas fa-user-edit mr-1"></i>Создатель
+                                    </span>` :
+                                    `<span class="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-600">
+                                        <i class="fas fa-user-edit mr-1"></i>Создатель
+                                    </span>`
+                                }
+                                ${hasExecutorSignature ? 
+                                    `<span class="px-2 py-1 rounded text-xs font-bold bg-emerald-100 text-emerald-700">
+                                        <i class="fas fa-user-check mr-1"></i>Исполнитель
+                                    </span>` :
+                                    `<span class="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-600">
+                                        <i class="fas fa-user-check mr-1"></i>Исполнитель
+                                    </span>`
+                                }
+                                ${hasApproverSignature ? 
+                                    `<span class="px-2 py-1 rounded text-xs font-bold bg-purple-100 text-purple-700">
+                                        <i class="fas fa-user-shield mr-1"></i>Утвердитель
+                                    </span>` :
+                                    `<span class="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-600">
+                                        <i class="fas fa-user-shield mr-1"></i>Утвердитель
+                                    </span>`
+                                }
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button onclick='printDoc(${JSON.stringify(x)})' class="text-blue-500 hover:text-blue-700" title="Печать документа">
+                                    <i class="fas fa-print"></i>
+                                </button>
+                                <button onclick='editShipment(${x.id})' class="text-green-500 hover:text-green-700" title="Редактировать">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick='deleteShipment(${x.id})' class="text-red-500 hover:text-red-700" title="Удалить">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        });
+
+        function openModal(){ 
+            document.getElementById('modal').classList.remove('hidden'); 
+            document.querySelector('input[name="date"]').value = new Date().toISOString().split('T')[0];
+        }
+        function closeModal(){ document.getElementById('modal').classList.add('hidden'); }
+
+        function toggleBackdate() {
+            const checkbox = document.getElementById('backdate');
+            const backdateField = document.getElementById('backdateField');
+            backdateField.classList.toggle('hidden', !checkbox.checked);
+        }
+
+        function showSignModal() {
+            document.getElementById('signName').innerText = user.name;
+            document.getElementById('signRole').innerText = user.role;
+            document.getElementById('signModal').classList.remove('hidden');
+        }
+
+        function editShipment(id) {
+            // Найти отправку для редактирования
+            const shipment = shipments.find(x => x.id === id);
+            if(!shipment) return;
+            
+            // Заполнить форму текущими данными
+            const form = document.querySelector('#modal form');
+            form.date.value = shipment.date ? new Date(shipment.date.split('.').reverse().join('-')).toISOString().split('T')[0] : '';
+            form.rec.value = shipment.recipientId || '';
+            form.items.value = shipment.items || '';
+            form.responsible.value = shipment.responsible || '';
+            form.transport.value = shipment.transport || 'personal';
+            form.notes.value = shipment.notes || '';
+            
+            // Изменить кнопку сохранения
+            const submitBtn = form.querySelector('button');
+            submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Обновить отправку';
+            submitBtn.onclick = (e) => updateShipment(e, id);
+            
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        async function updateShipment(e, id) {
+            e.preventDefault();
+            const f = e.target;
+            
+            const updatedShipment = {
+                ...shipments.find(x => x.id === id),
+                date: f.date.value ? new Date(f.date.value).toLocaleDateString('ru-RU') : '',
+                recipientId: f.rec.value,
+                items: f.items.value,
+                responsible: f.responsible.value,
+                transport: f.transport.value,
+                notes: f.notes.value,
+                updatedAt: new Date().toLocaleString('ru-RU'),
+                updatedBy: user.name
+            };
+            
+            try {
+                const snapshot = await db.ref('shipments').once('value');
+                const list = snapshot.val() || [];
+                const updatedList = list.map(x => x.id === id ? updatedShipment : x);
+                await db.ref('shipments').set(updatedList);
+                
+                alert(`Отправка успешно обновлена!`);
+                closeModal();
+                
+                // Восстановить кнопку сохранения
+                const submitBtn = f.querySelector('button');
+                submitBtn.innerHTML = '<i class="fas fa-arrow-right mr-2"></i>Перейти к подписанию';
+                submitBtn.onclick = (e) => { e.preventDefault(); showSignModal(); };
+                
+            } catch (error) {
+                console.error('Ошибка при обновлении:', error);
+                alert('Произошла ошибка при обновлении отправки');
+            }
+        }
+
+        function deleteShipment(id) {
+            const shipment = shipments.find(x => x.id === id);
+            if(confirm(`Удалить отправку "${shipment?.items?.substring(0, 50)}..."?`)) {
+                db.ref('shipments').once('value').then(snap => {
+                    const list = snap.val().filter(x => x.id !== id);
+                    db.ref('shipments').set(list);
+                });
+            }
+        }
+
+        async function confirmSave() {
+            const f = document.getElementById('shipForm');
+            
+            const isBackdated = document.getElementById('backdate').checked;
+            const entryDate = isBackdated ? 
+                (f.entryDate.value ? new Date(f.entryDate.value).toLocaleDateString('ru-RU') : new Date().toLocaleDateString('ru-RU')) :
+                new Date().toLocaleDateString('ru-RU');
+            
+            const data = {
+                id: Date.now(),
+                date: f.date.value ? new Date(f.date.value).toLocaleDateString('ru-RU') : '',
+                entryDate: entryDate,
+                recipientId: parseInt(f.rec.value),
+                items: f.items.value,
+                responsible: f.responsible.value || user.name,
+                transport: f.transport.value || 'personal',
+                notes: f.notes.value || '',
+                createdBy: user.name,
+                createdAt: new Date().toLocaleString('ru-RU'),
+                status: 'draft',
+                signatures: {
+                    creator: {
+                        signerId: user.id,
+                        signerName: user.name,
+                        signerRole: user.role,
+                        signedAt: new Date().toISOString(),
+                        status: 'signed',
+                        signatureHash: generateSignatureHash(f),
+                        comment: 'Документ создан и подписан создателем'
+                    }
+                }
+            };
+            
+            try {
+                const snapshot = await db.ref('shipments').once('value');
+                const list = snapshot.val() || [];
+                list.push(data);
+                await db.ref('shipments').set(list);
+                
+                alert(`Отправка успешно создана и подписана!\nСтатус: Создано (требует подписи исполнителя и утвердителя)`);
+                
+                // Закрыть модальные окна и сбросить форму
+                document.getElementById('signModal').classList.add('hidden');
+                closeModal();
+                document.getElementById('shipForm').reset();
+                
+            } catch (error) {
+                console.error('Ошибка при создании отправки:', error);
+                alert('Произошла ошибка при создании отправки');
+            }
+        }
+
+        function generateSignatureHash(formData) {
+            const data = JSON.stringify(formData);
+            let hash = 0;
+            for (let i = 0; i < data.length; i++) {
+                const char = data.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return Math.abs(hash).toString(16);
+        }
+
+        async function addSignature(shipmentId, signatureType) {
+            const shipment = shipments.find(x => x.id === shipmentId);
+            if(!shipment) return;
+            
+            if(confirm(`Добавить подпись "${getSignatureTypeName(signatureType)}" к отправке?`)) {
+                const signature = {
+                    signerId: user.id,
+                    signerName: user.name,
+                    signerRole: user.role,
+                    signedAt: new Date().toISOString(),
+                    status: 'signed',
+                    signatureHash: generateSignatureHash(shipment),
+                    comment: `Подпись ${getSignatureTypeName(signatureType)}`
+                };
+                
+                try {
+                    const snapshot = await db.ref('shipments').once('value');
+                    const list = snapshot.val() || [];
+                    const updatedList = list.map(x => {
+                        if(x.id === shipmentId) {
+                            x.signatures = x.signatures || {};
+                            x.signatures[signatureType] = signature;
+                            x.status = getFinalStatus(x.signatures);
+                            x.updatedAt = new Date().toLocaleString('ru-RU');
+                            x.updatedBy = user.name;
+                        }
+                        return x;
+                    });
+                    await db.ref('shipments').set(updatedList);
+                    
+                    alert(`Подпись "${getSignatureTypeName(signatureType)}" добавлена!`);
+                } catch (error) {
+                    console.error('Ошибка при добавлении подписи:', error);
+                    alert('Произошла ошибка при добавлении подписи');
+                }
+            }
+        }
+
+        function getSignatureTypeName(type) {
+            const names = {
+                'creator': 'Создатель',
+                'executor': 'Исполнитель', 
+                'approver': 'Утвердитель'
+            };
+            return names[type] || type;
+        }
+
+        function getFinalStatus(signatures) {
+            const hasCreator = signatures.creator && signatures.creator.status === 'signed';
+            const hasExecutor = signatures.executor && signatures.executor.status === 'signed';
+            const hasApprover = signatures.approver && signatures.approver.status === 'signed';
+            
+            if(hasCreator && hasExecutor && hasApprover) return 'completed';
+            if(hasCreator && hasExecutor) return 'in_progress';
+            if(hasCreator) return 'draft';
+            return 'draft';
+        }
+
+        function printDoc(item){
+            const recipient = recipients.find(r=>r.id==item.recipientId);
+            const signatures = item.signatures || {};
+            const currentDate = new Date().toLocaleDateString('ru-RU');
+            
+            const w = window.open('','','width=900,height=1000');
+            w.document.write(`
+                <html><head><title>Накладная № ${item.id}</title>
+                <style>
+                    @page { size: A4; margin: 20mm; }
+                    body { font-family: 'Times New Roman', serif; padding: 0; }
+                    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 15px; }
+                    .doc-title { font-size: 24px; font-weight: bold; margin: 20px 0; }
+                    .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    .info-table th, .info-table td { border: 1px solid #000; padding: 8px; font-size: 12px; }
+                    .info-table th { background: #f5f5f5; text-align: left; font-weight: bold; }
+                    .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    .items-table th, .items-table td { border: 1px solid #000; padding: 8px; font-size: 12px; }
+                    .items-table th { background: #f5f5f5; text-align: center; font-weight: bold; }
+                    .signatures-section { margin-top: 40px; }
+                    .signature-row { display: flex; justify-content: space-between; margin: 30px 0; }
+                    .signature-box { width: 45%; border: 1px solid #000; padding: 15px; }
+                    .signature-title { font-weight: bold; margin-bottom: 10px; }
+                    .signature-line { margin-top: 20px; border-bottom: 1px solid #000; height: 30px; }
+                    .pep-stamp { border: 2px solid #2563eb; color: #2563eb; padding: 15px; font-weight: bold; background: #f8fafc; margin-top: 20px; }
+                    .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+                    .status-draft { background: #fef3c7; color: #92400e; }
+                    .status-progress { background: #dbeafe; color: #1e40af; }
+                    .status-completed { background: #d1fae5; color: #065f46; }
+                </style>
+                </head><body>
+                <div class="header">
+                    <h2>ВОЛОНТЕРСКАЯ ГРУППА «БЛАГО ДАРИТЬ»</h2>
+                    <div class="doc-title">ТОВАРНО-ТРАНСПОРТНАЯ НАКЛАДНАЯ № ${item.id}</div>
+                    <div>Дата составления: ${currentDate}</div>
+                </div>
+                
+                <table class="info-table">
+                    <tr>
+                        <th width="30%">Отправитель:</th>
+                        <td>Волонтерская группа «Благо дарить»</td>
+                    </tr>
+                    <tr>
+                        <th>Получатель:</th>
+                        <td>${recipient?.name || 'Неизвестно'}</td>
+                    </tr>
+                    <tr>
+                        <th>Адрес получателя:</th>
+                        <td>${recipient?.address || 'Не указан'}</td>
+                    </tr>
+                    <tr>
+                        <th>Дата отправки:</th>
+                        <td>${item.date || 'Не указана'}</td>
+                    </tr>
+                    <tr>
+                        <th>Дата записи:</th>
+                        <td>${item.entryDate || item.createdAt || currentDate}</td>
+                    </tr>
+                    <tr>
+                        <th>Ответственный:</th>
+                        <td>${item.responsible || 'Не указан'}</td>
+                    </tr>
+                    <tr>
+                        <th>Транспорт:</th>
+                        <td>${item.transport || 'Не указан'}</td>
+                    </tr>
+                    <tr>
+                        <th>Статус документа:</th>
+                        <td>
+                            <span class="status-badge ${item.status === 'completed' ? 'status-completed' : item.status === 'in_progress' ? 'status-progress' : 'status-draft'}">
+                                ${item.status === 'completed' ? 'ЗАВЕРШЕН' : item.status === 'in_progress' ? 'В РАБОТЕ' : 'ЧЕРНОВИК'}
+                            </span>
+                        </td>
+                    </tr>
+                </table>
+
+                <h3 style="margin: 20px 0 10px 0;">Перечень товаров:</h3>
+                <table class="items-table">
+                    <thead>
+                        <tr>
+                            <th width="10%">№</th>
+                            <th width="60%">Наименование</th>
+                            <th width="15%">Количество</th>
+                            <th width="15%">Ед. изм.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="text-align: center;">1</td>
+                            <td>${item.items}</td>
+                            <td style="text-align: center;">1</td>
+                            <td style="text-align: center;">шт.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                ${item.notes ? `
+                    <h3 style="margin: 20px 0 10px 0;">Примечания:</h3>
+                    <div style="border: 1px solid #ccc; padding: 10px; min-height: 50px;">
+                        ${item.notes}
+                    </div>
+                ` : ''}
+
+                <div class="signatures-section">
+                    <h3 style="margin-bottom: 15px;">Подписи ответственных лиц:</h3>
+                    
+                    ${Object.entries(signatures).map(([type, sig]) => `
+                        <div class="signature-row">
+                            <div class="signature-box">
+                                <div class="signature-title">${getSignatureTypeName(type)}:</div>
+                                <div>Подписал: ${sig.signerName}</div>
+                                <div>Роль: ${sig.signerRole}</div>
+                                <div>Дата: ${new Date(sig.signedAt).toLocaleString('ru-RU')}</div>
+                                <div>Комментарий: ${sig.comment}</div>
+                                <div class="signature-line"></div>
+                                <div style="text-align: center; font-size: 12px; margin-top: 5px;">Подпись</div>
+                            </div>
+                            <div class="signature-box">
+                                <div class="signature-title">Печать и подпись:</div>
+                                <div class="signature-line"></div>
+                                <div style="text-align: center; font-size: 12px; margin-top: 5px;">М.П.</div>
+                                <div class="signature-line" style="margin-top: 30px;"></div>
+                                <div style="text-align: center; font-size: 12px;">Подпись</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="pep-stamp">
+                    <strong>ЭЛЕКТРОННАЯ ПОДПИСЬ ДОКУМЕНТА</strong><br>
+                    Документ создан: ${item.createdAt || currentDate}<br>
+                    Создатель: ${item.createdBy || 'Система'}<br>
+                    Обновлен: ${item.updatedAt || '-'}<br>
+                    Хеш документа: SHA256:${btoa(`${item.createdBy}:${item.date}:${item.id}:${JSON.stringify(item)}`).replace(/=/g, '')}
+                </div>
+                </body></html>
+            `);
+            w.document.close();
+        }
+    </script>
+</body>
+</html>

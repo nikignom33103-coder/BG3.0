@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Получатели — Благо дарить v4.5.0 PRO</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background-color: #f8fafc; color: #334155; }
+        .sidebar { background: #0f172a; color: white; }
+        .nav-link { transition: .2s; opacity: .8; }
+        .nav-link:hover { opacity: 1; background: rgba(255,255,255,.1); }
+        .nav-link.active { background: #0f766e; opacity: 1; color: white; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .modal-content { animation: fadeIn 0.2s ease-out forwards; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <aside class="sidebar w-64 flex-shrink-0 flex flex-col z-20">
+        <div class="h-16 flex items-center gap-3 px-6 bg-slate-900 border-b border-slate-800">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold">Б</div>
+            <span class="font-bold text-lg tracking-tight">Благо дарить</span>
+        </div>
+        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            <p class="px-3 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Меню</p>
+            <a href="dashboard.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium"><i class="fas fa-chart-pie w-6"></i>Сводка</a>
+            <a href="shipments.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium"><i class="fas fa-truck-fast w-6"></i>Отправки</a>
+            <a href="recipients.html" class="nav-link active flex items-center px-3 py-2.5 rounded-xl text-sm font-medium"><i class="fas fa-users w-6"></i>Получатели</a>
+            <a href="inventory.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium"><i class="fas fa-warehouse w-6"></i>Склад</a>
+            <a href="team.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium"><i class="fas fa-people-group w-6"></i>Команда CRM</a>
+            <a href="reports.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium"><i class="fas fa-file-contract w-6"></i>Отчетность</a>
+            <div id="adminMenu" class="hidden mt-6">
+                <p class="px-3 text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Админ</p>
+                <a href="users.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium"><i class="fas fa-user-shield w-6"></i>Доступ</a>
+                <a href="settings.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium"><i class="fas fa-cogs w-6"></i>Настройки</a>
+            </div>
+        </nav>
+        <div class="p-4 bg-slate-900 border-t border-slate-800 flex items-center gap-3">
+            <div id="userAvatar" class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-white"></div>
+            <div class="flex-1 min-w-0"><p id="currentUserName" class="text-sm font-medium text-white truncate">...</p></div>
+            <button onclick="logout()" class="text-slate-400 hover:text-white"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col min-w-0 bg-[#f1f5f9]">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10">
+            <h1 class="text-xl font-bold text-slate-800">База получателей</h1>
+            <button onclick="openModal()" class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:shadow-emerald-500/30 transition flex items-center gap-2">
+                <i class="fas fa-plus"></i> Добавить
+            </button>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8">
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                            <th class="px-6 py-4">ФИО / Позывной</th>
+                            <th class="px-6 py-4">Подразделение</th>
+                            <th class="px-6 py-4">Контакты</th>
+                            <th class="px-6 py-4">Ответственный</th>
+                            <th class="px-6 py-4 text-right">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 modal-content">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-xl text-slate-800">Получатель</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <form onsubmit="saveRec(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Имя / Позывной</label>
+                    <input name="name" class="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Подразделение</label>
+                    <input name="unit" class="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Контакты</label>
+                    <input name="contact" class="w-full p-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <button class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition">Сохранить</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyDRMyiouLjL6oyQK5TIpr69b8mvCcq4uLE", authDomain: "blago-a6270.firebaseapp.com", databaseURL: "https://blago-a6270-default-rtdb.firebaseio.com", projectId: "blago-a6270", storageBucket: "blago-a6270.firebasestorage.app", messagingSenderId: "857823585303", appId: "1:857823585303:web:6ce2d1acff62b16ebd2852", measurementId: "G-YHWJPH8TF9" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const user = JSON.parse(localStorage.getItem('blago_user'));
+        if(!user) window.location.href = 'index.html';
+        
+        document.getElementById('currentUserName').innerText = user.name;
+        document.getElementById('userAvatar').innerText = user.name[0];
+        if(user.role==='admin') document.getElementById('adminMenu').classList.remove('hidden');
+        function logout(){localStorage.removeItem('blago_user'); window.location.href='index.html';}
+
+        db.ref('recipients').on('value', snap => {
+            const list = snap.val() || [];
+            document.getElementById('tableBody').innerHTML = list.map(r => `
+                <tr class="hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                    <td class="px-6 py-4 font-bold text-slate-800">${r.name}</td>
+                    <td class="px-6 py-4">${r.unit || '-'}</td>
+                    <td class="px-6 py-4 text-sm">${r.contact || '-'}</td>
+                    <td class="px-6 py-4 text-xs text-slate-400">${r.createdBy || '-'}</td>
+                    <td class="px-6 py-4 text-right">
+                        <button onclick="del(${r.id})" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+                    </td>
+                </tr>`).join('');
+        });
+
+        function openModal(){ document.getElementById('modal').classList.remove('hidden'); }
+        function closeModal(){ document.getElementById('modal').classList.add('hidden'); }
+
+        function saveRec(e){
+            e.preventDefault();
+            const f = e.target;
+            const item = {
+                id: Date.now(),
+                name: f.name.value,
+                unit: f.unit.value,
+                contact: f.contact.value,
+                createdBy: user.name
+            };
+            db.ref('recipients').once('value').then(snap => {
+                const list = snap.val() || [];
+                list.push(item);
+                db.ref('recipients').set(list);
+            });
+            closeModal();
+        }
+
+        function del(id){
+            if(confirm('Удалить получателя?')) {
+                db.ref('recipients').once('value').then(snap => {
+                    const list = snap.val().filter(x => x.id !== id);
+                    db.ref('recipients').set(list);
+                });
+            }
+        }
+    </script>
+</body>
+</html>

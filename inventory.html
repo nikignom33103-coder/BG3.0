@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Система управления складом — Благо дарить v5.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f8fafc; color: #334155; }
+        .nav-link.active { background: #0f766e; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .tab-btn.active { border-color: #0f766e; color: #0f766e; border-bottom-width: 2px; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <aside class="w-64 bg-slate-900 text-white flex flex-col z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center font-bold">Б</div>
+            <span class="font-bold text-lg">Благо дарить</span>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+            <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Меню</p>
+            <a href="dashboard.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-chart-pie w-6"></i>Сводка</a>
+            <a href="shipments.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-truck w-6"></i>Отправки</a>
+            <a href="recipients.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-users w-6"></i>Получатели</a>
+            <a href="inventory.html" class="nav-link active flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition"><i class="fas fa-warehouse w-6"></i>Склад</a>
+            <a href="team.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-people-group w-6"></i>Команда CRM</a>
+            <a href="reports.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-file-contract w-6"></i>Отчетность</a>
+            <div id="adminBlock" class="hidden mt-6">
+                <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Админ</p>
+                <a href="users.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-user-shield w-6"></i>Доступ</a>
+                <a href="settings.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-cogs w-6"></i>Настройки</a>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+            <div id="ava" class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold"></div>
+            <div class="flex-1 min-w-0">
+                <p id="myName" class="text-sm font-bold truncate">...</p>
+                <p id="myRole" class="text-xs text-slate-400 truncate">...</p>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-white"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col bg-[#f1f5f9] overflow-hidden">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10 shadow-sm">
+            <h2 class="text-xl font-bold text-slate-800">Система управления складом v5.0</h2>
+            <div class="flex gap-2">
+                <button onclick="openModal('in')" class="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-emerald-700 transition shadow-lg shadow-emerald-500/30"><i class="fas fa-plus mr-2"></i>Приход</button>
+                <button onclick="openModal('out')" class="bg-amber-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-amber-700 transition shadow-lg shadow-amber-500/30"><i class="fas fa-minus mr-2"></i>Списание</button>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8">
+            <div class="flex border-b border-slate-200 mb-6 gap-6">
+                <button onclick="switchTab('sof')" id="tabSof" class="tab-btn active pb-3 px-2 text-sm font-bold transition">Склад Софийская</button>
+                <button onclick="switchTab('pes')" id="tabPes" class="tab-btn pb-3 px-2 text-sm font-bold transition">Склад Песочный</button>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 text-xs font-bold text-slate-500 uppercase border-b border-slate-200">
+                        <tr>
+                            <th class="px-6 py-4">Товар</th>
+                            <th class="px-6 py-4">Категория</th>
+                            <th class="px-6 py-4">Остаток</th>
+                            <th class="px-6 py-4">Ед. изм.</th>
+                            <th class="px-6 py-4 text-right">Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100 text-sm text-slate-700"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Operation Modal -->
+    <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6">
+            <h3 id="modalTitle" class="font-bold text-xl mb-4 text-slate-800">Операция</h3>
+            <form id="opForm" onsubmit="event.preventDefault(); showSignModal();" class="space-y-4">
+                <input type="hidden" name="type" id="opType">
+                
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
+                    <div class="flex items-center gap-3 mb-4">
+                        <input type="checkbox" name="backdate" id="backdate" class="w-5 h-5 text-blue-600 rounded" onchange="toggleBackdate()">
+                        <label for="backdate" class="text-lg font-bold text-blue-800 cursor-pointer">
+                            <i class="fas fa-calendar-clock mr-2"></i>Внести данные задним числом
+                        </label>
+                    </div>
+                    <div id="dateFields" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Дата операции</label>
+                            <input type="date" name="date" class="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" required>
+                        </div>
+                        <div id="backdateField" class="hidden">
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Фактическая дата внесения</label>
+                            <input type="date" name="entryDate" class="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                            <p class="text-xs text-blue-700 mt-1 flex items-center gap-1">
+                                <i class="fas fa-info-circle"></i>
+                                Дата, когда фактически была внесена запись в систему
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <input name="name" list="goods" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Наименование товара" required>
+                <datalist id="goods"></datalist>
+                
+                <div class="grid grid-cols-3 gap-4">
+                    <input type="number" name="qty" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Количество" required>
+                    <input name="unit" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Ед. изм." value="шт" required>
+                    <select name="category" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                        <option value="одежда">Одежда</option>
+                        <option value="продукты">Продукты</option>
+                        <option value="медикаменты">Медикаменты</option>
+                        <option value="техника">Техника</option>
+                        <option value="другое">Другое</option>
+                    </select>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Место хранения</label>
+                        <select name="warehouse" class="w-full p-3 border border-slate-200 rounded-xl" required>
+                            <option value="sof">Основной склад (Софийская)</option>
+                            <option value="pes">Филиал (Песочный)</option>
+                            <option value="temp">Временное хранение</option>
+                            <option value="damaged">Бракованные товары</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Ответственный</label>
+                        <input name="responsible" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="ФИО ответственного" required>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Источник поступления</label>
+                    <select name="source" class="w-full p-3 border border-slate-200 rounded-xl">
+                        <option value="donation">Пожертвование</option>
+                        <option value="purchase">Закупка</option>
+                        <option value="transfer">Перемещение</option>
+                        <option value="return">Возврат</option>
+                        <option value="other">Прочее</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Примечания</label>
+                    <textarea name="notes" class="w-full p-3 border border-slate-200 rounded-xl h-20" placeholder="Дополнительная информация..."></textarea>
+                </div>
+                
+                <button class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition">
+                    <i class="fas fa-arrow-right mr-2"></i>Перейти к подписанию
+                </button>
+            </form>
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+
+    <!-- Signing Modal -->
+    <div id="signModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div class="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fas fa-file-contract"></i>
+            </div>
+            <h3 class="font-bold text-xl text-slate-800 mb-2">Подписание документа</h3>
+            <p class="text-sm text-slate-500 mb-6">Вы подтверждаете материальную ответственность за данную операцию.</p>
+            <div class="p-3 bg-slate-50 rounded-xl mb-6 text-left">
+                <p class="text-xs text-slate-400 font-bold uppercase">Подписант</p>
+                <p class="font-bold text-slate-700" id="signName">...</p>
+                <p class="text-xs text-slate-500" id="signRole">...</p>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('signModal').classList.add('hidden')" class="flex-1 py-2 border border-slate-200 rounded-lg font-bold text-slate-600">Отмена</button>
+                <button onclick="confirmOp()" class="flex-1 py-2 bg-amber-600 text-white rounded-lg font-bold shadow-lg shadow-amber-500/30">Подписать</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyDRMyiouLjL6oyQK5TIpr69b8mvCcq4uLE", authDomain: "blago-a6270.firebaseapp.com", databaseURL: "https://blago-a6270-default-rtdb.firebaseio.com", projectId: "blago-a6270", storageBucket: "blago-a6270.firebasestorage.app", messagingSenderId: "857823585303", appId: "1:857823585303:web:6ce2d1acff62b16ebd2852", measurementId: "G-YHWJPH8TF9" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const user = JSON.parse(localStorage.getItem('blago_user'));
+        if(!user) window.location.href = 'index.html';
+        
+        document.getElementById('myName').innerText = user.name;
+        document.getElementById('myRole').innerText = user.role;
+        document.getElementById('ava').innerText = user.name[0];
+        if(user.role==='admin') document.getElementById('adminBlock').classList.remove('hidden');
+        function logout(){localStorage.removeItem('blago_user'); window.location.href='index.html';}
+
+        let inventory = [];
+        let currentWarehouse = 'sof';
+
+        db.ref('inventory').on('value', snap => {
+            inventory = snap.val() || [];
+            render();
+            const goods = [...new Set(inventory.map(i => i.name))];
+            document.getElementById('goods').innerHTML = goods.map(g => `<option value="${g}">`).join('');
+        });
+
+        function switchTab(w){
+            currentWarehouse = w;
+            document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+            document.getElementById(w === 'sof' ? 'tabSof' : 'tabPes').classList.add('active');
+            render();
+        }
+
+        function render() {
+            const list = inventory.filter(i => (i.warehouse || 'sof') === currentWarehouse);
+            
+            // Calculate summary statistics
+            const totalItems = list.length;
+            const totalQuantity = list.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+            const criticalItems = list.filter(item => parseInt(item.quantity) < 10).length;
+            const lowItems = list.filter(item => parseInt(item.quantity) >= 10 && parseInt(item.quantity) < 50).length;
+            
+            // Update summary
+            document.getElementById('summaryTotal').textContent = totalItems;
+            document.getElementById('summaryQuantity').textContent = totalQuantity;
+            document.getElementById('summaryCritical').textContent = criticalItems;
+            document.getElementById('summaryLow').textContent = lowItems;
+            
+            document.getElementById('tableBody').innerHTML = list.map(i => {
+                const quantity = parseInt(i.quantity) || 0;
+                const statusClass = quantity < 10 ? 'text-red-600' : quantity < 50 ? 'text-yellow-600' : 'text-emerald-600';
+                const statusText = quantity < 10 ? 'Критично' : quantity < 50 ? 'Мало' : 'Достаточно';
+                const statusBadge = quantity < 10 ? 'bg-red-100 text-red-700' : quantity < 50 ? 'bg-yellow-100 text-yellow-700' : 'bg-emerald-100 text-emerald-700';
+                
+                return `
+                    <tr class="hover:bg-slate-50 border-b border-slate-100 last:border-0 transition-colors">
+                        <td class="px-6 py-4">
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center font-bold text-slate-600 text-sm shadow-inner">
+                                    ${getCategoryIcon(i.category)}
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-bold text-slate-800">${i.name}</div>
+                                    ${i.notes ? `<div class="text-xs text-slate-500 mt-1 line-clamp-2">${i.notes.substring(0, 80)}${i.notes.length > 80 ? '...' : ''}</div>` : ''}
+                                    ${i.responsible ? `<div class="text-xs text-slate-400 mt-1">Ответственный: ${i.responsible}</div>` : ''}
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-xs font-bold text-slate-500 uppercase mb-1">${i.category || 'Общее'}</div>
+                            <div class="text-xs text-slate-400">${getWarehouseName(i.warehouse || 'sof')}</div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex items-center gap-2">
+                                <div class="font-mono font-bold ${statusClass} text-lg">${quantity}</div>
+                                <div class="text-xs text-slate-400">${i.unit}</div>
+                            </div>
+                            <div class="mt-1">
+                                <span class="px-2 py-1 rounded-full text-xs font-bold ${statusBadge}">
+                                    ${statusText}
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-slate-600">${i.unit}</div>
+                            ${i.source ? `<div class="text-xs text-slate-400">${getSourceLabel(i.source)}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="text-xs text-slate-500">
+                                ${i.createdAt ? new Date(i.createdAt).toLocaleDateString('ru-RU') : 'Не указано'}
+                            </div>
+                            ${i.updatedAt ? `<div class="text-xs text-slate-400">Обновлено: ${new Date(i.updatedAt).toLocaleDateString('ru-RU')}</div>` : ''}
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <div class="flex justify-end gap-2">
+                                <button onclick='viewInventoryItem(${i.id})' class="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition" title="Просмотр">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button onclick='printInventoryDoc(${i.id})' class="p-2 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition" title="Печать карточки">
+                                    <i class="fas fa-print"></i>
+                                </button>
+                                <button onclick='addInventoryOperation(${i.id})' class="p-2 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition" title="Добавить операцию">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                                <button onclick='editInventoryItem(${i.id})' class="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition" title="Редактировать">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick='deleteInventoryItem(${i.id})' class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition" title="Удалить">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('') || `
+                <tr>
+                    <td colspan="6" class="px-6 py-12 text-center">
+                        <div class="text-slate-400">
+                            <i class="fas fa-box-open text-4xl mb-4"></i>
+                            <p class="text-lg font-medium">Товары не найдены</p>
+                            <p class="text-sm">Добавьте первый товар на склад</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Helper functions for inventory display
+        function getCategoryIcon(category) {
+            const icons = {
+                'одежда': '👕',
+                'продукты': '🍎',
+                'медикаменты': '💊',
+                'техника': '📱',
+                'гигиена': '🧴',
+                'детские': '🧸',
+                'строительные': '🔨',
+                'другое': '📦'
+            };
+            return icons[category] || '📦';
+        }
+
+        function getWarehouseName(warehouse) {
+            const names = {
+                'sof': 'Основной склад',
+                'pes': 'Филиал (Песочный)',
+                'temp': 'Временное хранение',
+                'damaged': 'Бракованные товары',
+                'out': 'Отправлено',
+                'distributed': 'Распределено'
+            };
+            return names[warehouse] || warehouse;
+        }
+
+        function getSourceLabel(source) {
+            const labels = {
+                'donation': 'Пожертвование',
+                'purchase': 'Закупка',
+                'transfer': 'Перемещение',
+                'return': 'Возврат',
+                'other': 'Прочее'
+            };
+            return labels[source] || source;
+        }
+
+        function toggleBackdate() {
+            const checkbox = document.getElementById('backdate');
+            const backdateField = document.getElementById('backdateField');
+            backdateField.classList.toggle('hidden', !checkbox.checked);
+        }
+
+        function openModal(type){
+            document.getElementById('modal').classList.remove('hidden');
+            document.getElementById('opType').value = type;
+            document.getElementById('modalTitle').innerText = type === 'in' ? 'Приход товара' : 'Списание товара';
+            
+            // Сброс формы
+            const form = document.getElementById('opForm');
+            form.reset();
+            form.type.value = type;
+            
+            // Установить текущую дату
+            document.querySelector('input[name="date"]').value = new Date().toISOString().split('T')[0];
+            
+            // Скрыть поля задней даты
+            document.getElementById('backdateField').classList.add('hidden');
+            document.getElementById('backdate').checked = false;
+        }
+        
+        function closeModal(){ 
+            document.getElementById('modal').classList.add('hidden'); 
+        }
+
+        function showSignModal() {
+            document.getElementById('signName').innerText = user.name;
+            document.getElementById('signRole').innerText = user.role;
+            document.getElementById('signModal').classList.remove('hidden');
+        }
+
+        function editInventoryItem(id) {
+            const item = inventory.find(x => x.id === id);
+            if(!item) return;
+            
+            // Заполнить форму текущими данными
+            const form = document.getElementById('opForm');
+            form.type.value = 'in'; // Для редактирования всегда приход
+            form.date.value = item.createdAt ? new Date(item.createdAt.split(' ')[0].split('.').reverse().join('-')).toISOString().split('T')[0] : '';
+            form.name.value = item.name;
+            form.qty.value = item.quantity;
+            form.unit.value = item.unit;
+            form.category.value = item.category || 'другое';
+            form.warehouse.value = item.warehouse || 'sof';
+            form.responsible.value = item.responsible || '';
+            form.source.value = item.source || 'donation';
+            form.notes.value = item.notes || '';
+            
+            // Изменить кнопку подтверждения
+            const confirmBtn = document.querySelector('#signModal button[onclick="confirmOp()"]');
+            confirmBtn.innerText = 'Обновить';
+            confirmBtn.onclick = (e) => updateInventoryItem(e, id);
+            
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        async function updateInventoryItem(e, id) {
+            e.preventDefault();
+            const f = document.getElementById('opForm');
+            
+            const updatedItem = {
+                ...inventory.find(x => x.id === id),
+                name: f.name.value,
+                quantity: parseInt(f.qty.value),
+                unit: f.unit.value,
+                category: f.category.value,
+                warehouse: f.warehouse.value,
+                responsible: f.responsible.value,
+                source: f.source.value,
+                notes: f.notes.value,
+                updatedAt: new Date().toLocaleString('ru-RU'),
+                updatedBy: user.name
+            };
+
+            try {
+                const snapshot = await db.ref('inventory').once('value');
+                const list = snapshot.val() || [];
+                const updatedList = list.map(x => x.id === id ? updatedItem : x);
+                await db.ref('inventory').set(updatedList);
+                
+                alert(`Товар "${updatedItem.name}" успешно обновлен!`);
+                closeModal();
+                
+                // Восстановить кнопку подтверждения
+                const confirmBtn = document.querySelector('#signModal button[onclick]');
+                confirmBtn.innerText = 'Подписать';
+                confirmBtn.onclick = confirmOp;
+                
+            } catch (error) {
+                console.error('Ошибка при обновлении:', error);
+                alert('Произошла ошибка при обновлении товара');
+            }
+        }
+
+        function deleteInventoryItem(id) {
+            const item = inventory.find(x => x.id === id);
+            if(confirm(`Удалить товар "${item?.name}" из склада?`)) {
+                db.ref('inventory').once('value').then(snap => {
+                    const list = snap.val().filter(x => x.id !== id);
+                    db.ref('inventory').set(list);
+                });
+            }
+        }
+
+        async function confirmOp() {
+            const f = document.getElementById('opForm');
+            const type = f.type.value;
+            const qty = parseInt(f.qty.value);
+            
+            const isBackdated = document.getElementById('backdate').checked;
+            const entryDate = isBackdated ? 
+                (f.entryDate.value ? new Date(f.entryDate.value).toLocaleDateString('ru-RU') : new Date().toLocaleDateString('ru-RU')) :
+                new Date().toLocaleDateString('ru-RU');
+            
+            const dateStr = new Date(f.date.value).toLocaleDateString('ru-RU');
+            
+            const newItem = {
+                id: Date.now(),
+                type: type,
+                date: dateStr,
+                entryDate: entryDate,
+                name: f.name.value,
+                quantity: qty,
+                unit: f.unit.value,
+                category: f.category.value,
+                warehouse: f.warehouse.value,
+                responsible: f.responsible.value,
+                source: f.source.value,
+                notes: f.notes.value,
+                createdBy: user.name,
+                createdAt: new Date().toLocaleString('ru-RU'),
+                status: 'draft',
+                signatures: {
+                    creator: {
+                        signerId: user.id,
+                        signerName: user.name,
+                        signerRole: user.role,
+                        signedAt: new Date().toISOString(),
+                        status: 'signed',
+                        signatureHash: generateSignatureHash(f),
+                        comment: 'Документ создан и подписан создателем'
+                    }
+                }
+            };
+
+            const snap = await db.ref('inventory').once('value');
+            let list = snap.val() || [];
+            
+            // Logic для обновления остатков
+            let existingItem = list.find(x => x.name === f.name.value && (x.warehouse||'sof') === f.warehouse.value && !x.type);
+            if(existingItem) {
+                existingItem.quantity = type === 'in' ? existingItem.quantity + qty : existingItem.quantity - qty;
+                existingItem.updatedAt = new Date().toLocaleString('ru-RU');
+                existingItem.updatedBy = user.name;
+            } else if (type === 'in') {
+                list.push({
+                    ...newItem,
+                    quantity: qty
+                });
+            }
+
+            // Добавляем операцию в журнал
+            list.push(newItem);
+            await db.ref('inventory').set(list);
+            
+            // Печать документа
+            printInventoryOperation(newItem);
+            
+            alert(`Операция "${type === 'in' ? 'приход' : 'списание'}" успешно создана и подписана!`);
+            
+            document.getElementById('signModal').classList.add('hidden');
+            closeModal();
+        }
+
+        function generateSignatureHash(formData) {
+            const data = JSON.stringify(formData);
+            let hash = 0;
+            for (let i = 0; i < data.length; i++) {
+                const char = data.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return Math.abs(hash).toString(16);
+        }
+
+        function printInventoryOperation(item) {
+            const w = window.open('','','width=900,height=1000');
+            const warehouseNames = {
+                'sof': 'Основной склад (Софийская)',
+                'pes': 'Филиал (Песочный)',
+                'temp': 'Временное хранение',
+                'damaged': 'Бракованные товары'
+            };
+            
+            const sourceNames = {
+                'donation': 'Пожертвование',
+                'purchase': 'Закупка',
+                'transfer': 'Перемещение',
+                'return': 'Возврат',
+                'other': 'Прочее'
+            };
+
+            w.document.write(`
+                <html><head><title>Складская операция № ${item.id}</title>
+                <style>
+                    @page { size: A4; margin: 20mm; }
+                    body { font-family: 'Times New Roman', serif; padding: 0; }
+                    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 15px; }
+                    .doc-title { font-size: 24px; font-weight: bold; margin: 20px 0; }
+                    .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    .info-table th, .info-table td { border: 1px solid #000; padding: 8px; font-size: 12px; }
+                    .info-table th { background: #f5f5f5; text-align: left; font-weight: bold; }
+                    .signatures-section { margin-top: 40px; }
+                    .signature-row { display: flex; justify-content: space-between; margin: 30px 0; }
+                    .signature-box { width: 45%; border: 1px solid #000; padding: 15px; }
+                    .signature-title { font-weight: bold; margin-bottom: 10px; }
+                    .signature-line { margin-top: 20px; border-bottom: 1px solid #000; height: 30px; }
+                    .pep-stamp { border: 2px solid #2563eb; color: #2563eb; padding: 15px; font-weight: bold; background: #f8fafc; margin-top: 20px; }
+                </style>
+                </head><body>
+                <div class="header">
+                    <h2>ВОЛОНТЕРСКАЯ ГРУППА «БЛАГО ДАРИТЬ»</h2>
+                    <div class="doc-title">${item.type === 'in' ? 'ПРИХОДНЫЙ ОРДЕР' : 'АКТ СПИСАНИЯ'} № ${item.id}</div>
+                    <div>Дата составления: ${new Date().toLocaleDateString('ru-RU')}</div>
+                </div>
+                
+                <table class="info-table">
+                    <tr>
+                        <th width="30%">Дата операции:</th>
+                        <td>${item.date}</td>
+                    </tr>
+                    <tr>
+                        <th>Дата записи:</th>
+                        <td>${item.entryDate}</td>
+                    </tr>
+                    <tr>
+                        <th>Товар:</th>
+                        <td>${item.name}</td>
+                    </tr>
+                    <tr>
+                        <th>Количество:</th>
+                        <td>${item.quantity} ${item.unit}</td>
+                    </tr>
+                    <tr>
+                        <th>Категория:</th>
+                        <td>${item.category}</td>
+                    </tr>
+                    <tr>
+                        <th>Место хранения:</th>
+                        <td>${warehouseNames[item.warehouse] || item.warehouse}</td>
+                    </tr>
+                    <tr>
+                        <th>Ответственный:</th>
+                        <td>${item.responsible}</td>
+                    </tr>
+                    <tr>
+                        <th>Источник поступления:</th>
+                        <td>${sourceNames[item.source] || item.source}</td>
+                    </tr>
+                </table>
+
+                ${item.notes ? `
+                    <h3 style="margin: 20px 0 10px 0;">Примечания:</h3>
+                    <div style="border: 1px solid #ccc; padding: 10px; min-height: 50px;">
+                        ${item.notes}
+                    </div>
+                ` : ''}
+
+                <div class="signatures-section">
+                    <h3 style="margin-bottom: 15px;">Подписи ответственных лиц:</h3>
+                    
+                    <div class="signature-row">
+                        <div class="signature-box">
+                            <div class="signature-title">Создатель документа:</div>
+                            <div>Подписал: ${item.signatures.creator.signerName}</div>
+                            <div>Роль: ${item.signatures.creator.signerRole}</div>
+                            <div>Дата: ${new Date(item.signatures.creator.signedAt).toLocaleString('ru-RU')}</div>
+                            <div>Комментарий: ${item.signatures.creator.comment}</div>
+                            <div class="signature-line"></div>
+                            <div style="text-align: center; font-size: 12px; margin-top: 5px;">Подпись</div>
+                        </div>
+                        <div class="signature-box">
+                            <div class="signature-title">Печать и подпись:</div>
+                            <div class="signature-line"></div>
+                            <div style="text-align: center; font-size: 12px; margin-top: 5px;">М.П.</div>
+                            <div class="signature-line" style="margin-top: 30px;"></div>
+                            <div style="text-align: center; font-size: 12px;">Подпись</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pep-stamp">
+                    <strong>ЭЛЕКТРОННАЯ ПОДПИСЬ ДОКУМЕНТА</strong><br>
+                    Документ создан: ${item.createdAt}<br>
+                    Создатель: ${item.createdBy}<br>
+                    Хеш документа: SHA256:${btoa(`${item.createdBy}:${item.date}:${item.id}:${item.name}`).replace(/=/g, '')}
+                </div>
+                </body></html>
+            `);
+            w.document.close();
+        }
+
+        function printInventoryDoc(id) {
+            const item = inventory.find(x => x.id === id);
+            if(!item) return;
+            
+            const w = window.open('','','width=900,height=1000');
+            w.document.write(`
+                <html><head><title>Карточка товара № ${id}</title>
+                <style>
+                    @page { size: A4; margin: 20mm; }
+                    body { font-family: 'Times New Roman', serif; padding: 0; }
+                    .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #000; padding-bottom: 15px; }
+                    .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    .info-table th, .info-table td { border: 1px solid #000; padding: 8px; font-size: 12px; }
+                    .info-table th { background: #f5f5f5; text-align: left; font-weight: bold; }
+                </style>
+                </head><body>
+                <div class="header">
+                    <h2>ВОЛОНТЕРСКАЯ ГРУППА «БЛАГО ДАРИТЬ»</h2>
+                    <h3>КАРТОЧКА ТОВАРА № ${id}</h3>
+                </div>
+                
+                <table class="info-table">
+                    <tr>
+                        <th width="30%">Наименование:</th>
+                        <td>${item.name}</td>
+                    </tr>
+                    <tr>
+                        <th>Количество:</th>
+                        <td>${item.quantity} ${item.unit}</td>
+                    </tr>
+                    <tr>
+                        <th>Категория:</th>
+                        <td>${item.category || 'Не указана'}</td>
+                    </tr>
+                    <tr>
+                        <th>Место хранения:</th>
+                        <td>${item.warehouse || 'Основной склад'}</td>
+                    </tr>
+                    <tr>
+                        <th>Ответственный:</th>
+                        <td>${item.responsible || 'Не указан'}</td>
+                    </tr>
+                    <tr>
+                        <th>Дата создания:</th>
+                        <td>${item.createdAt || 'Не указана'}</td>
+                    </tr>
+                    <tr>
+                        <th>Последнее обновление:</th>
+                        <td>${item.updatedAt || 'Не обновлялось'}</td>
+                    </tr>
+                </table>
+
+                ${item.notes ? `
+                    <h3 style="margin: 20px 0 10px 0;">Примечания:</h3>
+                    <div style="border: 1px solid #ccc; padding: 10px; min-height: 50px;">
+                        ${item.notes}
+                    </div>
+                ` : ''}
+                </body></html>
+            `);
+            w.document.close();
+        }
+    </script>
+</body>
+</html>

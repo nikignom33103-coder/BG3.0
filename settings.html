@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки — Благо дарить v4.5.0 PRO</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f8fafc; color: #334155; }
+        .nav-link.active { background: #0f766e; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-slate-900 text-white flex flex-col z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center font-bold">Б</div>
+            <span class="font-bold text-lg">Благо дарить</span>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+            <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Меню</p>
+            <a href="dashboard.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-chart-pie w-6"></i>Сводка</a>
+            <a href="shipments.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-truck w-6"></i>Отправки</a>
+            <a href="recipients.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-users w-6"></i>Получатели</a>
+            <a href="inventory.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-warehouse w-6"></i>Склад</a>
+            <a href="team.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-people-group w-6"></i>Команда CRM</a>
+            <a href="reports.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-file-contract w-6"></i>Отчетность</a>
+            <div id="adminBlock" class="hidden mt-6">
+                <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Админ</p>
+                <a href="users.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-user-shield w-6"></i>Доступ</a>
+                <a href="settings.html" class="nav-link active flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition"><i class="fas fa-cogs w-6"></i>Настройки</a>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+            <div id="ava" class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold"></div>
+            <div class="flex-1 min-w-0">
+                <p id="myName" class="text-sm font-bold truncate">...</p>
+                <p id="myRole" class="text-xs text-slate-400 truncate">...</p>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-white"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col bg-[#f1f5f9] overflow-hidden">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10 shadow-sm">
+            <h2 class="text-xl font-bold text-slate-800">Настройки системы</h2>
+            <span class="text-xs font-bold bg-slate-100 text-slate-500 px-3 py-1 rounded-full border">v4.4.0 CRM</span>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Data -->
+                <div class="space-y-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                        <h3 class="font-bold text-lg mb-4 text-slate-800">Резервное копирование</h3>
+                        <div class="space-y-3">
+                            <button onclick="backup()" class="w-full py-3 border border-emerald-500 text-emerald-600 font-bold rounded-xl hover:bg-emerald-50 transition">Скачать базу (JSON)</button>
+                            <button onclick="reset()" class="w-full py-3 border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition">Сброс данных</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Changelog -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-lg mb-6 text-slate-800">История версий</h3>
+                    <div class="relative pl-6 border-l-2 border-slate-100 space-y-8">
+                        <div class="relative">
+                            <div class="absolute -left-[29px] top-0 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white shadow-sm"></div>
+                            <h4 class="font-bold text-emerald-600">v4.4.0 (CRM Enterprise)</h4>
+                            <p class="text-xs text-slate-400 mb-2">2026 г.</p>
+                            <ul class="text-sm text-slate-600 space-y-1 list-disc pl-4">
+                                <li><strong>CRM 2.0</strong>: Единая база волонтеров и благотворителей с созданием учетных записей.</li>
+                                <li><strong>Журнал документов</strong>: Полный реестр операций с множественными подписями.</li>
+                                <li><strong>Дата операции</strong>: Возможность ввода данных задним числом.</li>
+                                <li><strong>Локализация</strong>: Полный перевод интерфейса.</li>
+                            </ul>
+                        </div>
+                        <div class="relative opacity-60">
+                            <div class="absolute -left-[29px] top-0 w-4 h-4 bg-slate-300 rounded-full border-2 border-white"></div>
+                            <h4 class="font-bold text-slate-700">v4.0.0 (Professional)</h4>
+                            <p class="text-xs text-slate-400 mb-2">2026 г.</p>
+                            <ul class="text-sm text-slate-600 space-y-1 list-disc pl-4">
+                                <li>Электронная подпись (ПЭП) 2.0.</li>
+                                <li>Мульти-склад.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyDRMyiouLjL6oyQK5TIpr69b8mvCcq4uLE", authDomain: "blago-a6270.firebaseapp.com", databaseURL: "https://blago-a6270-default-rtdb.firebaseio.com", projectId: "blago-a6270", storageBucket: "blago-a6270.firebasestorage.app", messagingSenderId: "857823585303", appId: "1:857823585303:web:6ce2d1acff62b16ebd2852", measurementId: "G-YHWJPH8TF9" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const user = JSON.parse(localStorage.getItem('blago_user'));
+        if(!user) window.location.href = 'index.html';
+        
+        document.getElementById('myName').innerText = user.name;
+        document.getElementById('myRole').innerText = user.role;
+        document.getElementById('ava').innerText = user.name[0];
+        if(user.role==='admin') document.getElementById('adminBlock').classList.remove('hidden');
+        function logout(){localStorage.removeItem('blago_user'); window.location.href='index.html';}
+
+        function backup(){
+            db.ref('/').once('value').then(snap => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(new Blob([JSON.stringify(snap.val())], {type:'application/json'}));
+                a.download = 'blago_backup_v4.4.0.json';
+                a.click();
+            });
+        }
+
+        function reset(){
+            if(confirm('Удалить все данные кроме админа?')) {
+                db.ref('/').set({
+                    users: {1: {id:1, name:'Администратор', role:'admin', password:'623401', active:true}}
+                });
+                alert('Сброшено');
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>

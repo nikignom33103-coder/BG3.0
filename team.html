@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRM участников — Благо дарить v5.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f8fafc; color: #334155; }
+        .nav-link.active { background: #0f766e; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .tab-btn.active { border-color: #0f766e; color: #0f766e; }
+        
+        /* Modal */
+        .modal-enter { animation: modalIn 0.2s ease-out forwards; }
+        @keyframes modalIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <aside class="w-64 bg-slate-900 text-white flex flex-col z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center font-bold">Б</div>
+            <span class="font-bold text-lg">Благо дарить</span>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+            <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Меню</p>
+            <a href="dashboard.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-chart-pie w-6"></i>Сводка</a>
+            <a href="shipments.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-truck w-6"></i>Отправки</a>
+            <a href="recipients.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-users w-6"></i>Получатели</a>
+            <a href="inventory.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-warehouse w-6"></i>Склад</a>
+            <a href="team.html" class="nav-link active flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition"><i class="fas fa-people-group w-6"></i>Команда CRM</a>
+            <a href="reports.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-file-contract w-6"></i>Отчетность</a>
+            <div id="adminBlock" class="hidden mt-6">
+                <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Админ</p>
+                <a href="users.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-user-shield w-6"></i>Доступ</a>
+                <a href="settings.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-cogs w-6"></i>Настройки</a>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+            <div id="ava" class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold"></div>
+            <div class="flex-1 min-w-0">
+                <p id="myName" class="text-sm font-bold truncate">...</p>
+                <p id="myRole" class="text-xs text-slate-400 truncate">...</p>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-white"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col bg-[#f1f5f9] overflow-hidden">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10 shadow-sm">
+            <h2 class="text-xl font-bold text-slate-800">CRM участников v5.0</h2>
+            <button onclick="openModal()" class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:shadow-emerald-500/30 transition flex items-center gap-2">
+                <i class="fas fa-user-plus"></i> Новый участник
+            </button>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8">
+            <div class="flex gap-6 border-b border-slate-200 mb-6">
+                <button onclick="filter('volunteer')" class="tab-btn active pb-3 px-2 text-sm font-bold border-b-2 border-transparent transition" id="btnVol">Волонтеры</button>
+                <button onclick="filter('donor')" class="tab-btn pb-3 px-2 text-sm font-bold border-b-2 border-transparent transition" id="btnDon">Благотворители</button>
+                <button onclick="filter('partner')" class="tab-btn pb-3 px-2 text-sm font-bold border-b-2 border-transparent transition" id="btnPar">Партнеры</button>
+            </div>
+
+            <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+    </main>
+
+    <!-- Modal -->
+    <div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 modal-enter">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-xl text-slate-800">Анкета участника</h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button>
+            </div>
+            <form onsubmit="saveMember(event)" class="space-y-6">
+                <!-- Participant Type Selection -->
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-200">
+                    <label class="block text-sm font-bold text-blue-800 uppercase mb-4">
+                        <i class="fas fa-users mr-2"></i>Тип участника
+                    </label>
+                    <select name="type" id="memberType" class="w-full p-3 bg-white border border-blue-300 rounded-lg outline-none font-medium focus:ring-2 focus:ring-blue-500 transition" onchange="toggleFields(); updateRoleSuggestions()">
+                        <option value="volunteer">👤 Волонтер (активный участник)</option>
+                        <option value="donor">💝 Благотворитель (Физическое лицо)</option>
+                        <option value="company">🏢 Благотворитель (Юридическое лицо)</option>
+                        <option value="partner">🤝 Партнерская организация</option>
+                    </select>
+                </div>
+
+                <!-- Personal Information -->
+                <div id="personalFields" class="space-y-4">
+                    <h4 class="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2">
+                        <i class="fas fa-user mr-2"></i>Персональная информация
+                    </h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Фамилия *</label>
+                            <input name="surname" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="Фамилия" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Имя *</label>
+                            <input name="name" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="Имя" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Отчество</label>
+                            <input name="patronymic" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="Отчество">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Дата рождения</label>
+                            <input type="date" name="birthDate" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Пол</label>
+                            <select name="gender" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                                <option value="">Не указан</option>
+                                <option value="male">Мужской</option>
+                                <option value="female">Женский</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Company Information -->
+                <div id="companyFields" class="hidden space-y-4">
+                    <h4 class="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2">
+                        <i class="fas fa-building mr-2"></i>Информация об организации
+                    </h4>
+                    
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Полное наименование организации *</label>
+                        <input name="companyName" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="ООО 'Название компании'">
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">ИНН</label>
+                            <input name="inn" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="ИНН организации">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">КПП</label>
+                            <input name="kpp" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="КПП">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">ОГРН</label>
+                            <input name="ogrn" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="ОГРН">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contact Information -->
+                <div class="space-y-4">
+                    <h4 class="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2">
+                        <i class="fas fa-address-book mr-2"></i>Контактная информация
+                    </h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Контактный телефон *</label>
+                            <input name="phone" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="+7 (___) ___-__-__" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Электронная почта</label>
+                            <input name="email" type="email" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="email@example.com">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Почтовый адрес</label>
+                        <textarea name="address" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition h-20" placeholder="Полный почтовый адрес"></textarea>
+                    </div>
+                </div>
+
+                <!-- Organization Details -->
+                <div class="space-y-4">
+                    <h4 class="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2">
+                        <i class="fas fa-calendar-check mr-2"></i>Детали участия в организации
+                    </h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Дата вступления</label>
+                            <input type="date" name="joinDate" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Роль/Должность</label>
+                            <input name="role" id="roleInput" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="Например: Водитель, Координатор">
+                            <div id="roleSuggestions" class="hidden mt-2 p-2 bg-slate-50 rounded border text-sm"></div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Статус</label>
+                            <select name="status" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                                <option value="active">Активный</option>
+                                <option value="inactive">Неактивный</option>
+                                <option value="pending">На рассмотрении</option>
+                                <option value="honorary">Почетный участник</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Additional Information -->
+                <div class="space-y-4">
+                    <h4 class="text-lg font-bold text-slate-800 border-b border-slate-200 pb-2">
+                        <i class="fas fa-info-circle mr-2"></i>Дополнительная информация
+                    </h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Навыки и компетенции</label>
+                            <textarea name="skills" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition h-20" placeholder="Навыки, опыт, компетенции"></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Примечания</label>
+                            <textarea name="notes" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition h-20" placeholder="Дополнительные сведения, особенности"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Account Creation -->
+                <div class="bg-gradient-to-r from-amber-50 to-orange-50 p-6 rounded-xl border border-amber-200">
+                    <div class="flex items-center gap-3 mb-4">
+                        <input type="checkbox" name="createUser" id="cu" class="w-5 h-5 text-emerald-600 rounded" onchange="toggleUserFields()">
+                        <label for="cu" class="text-lg font-bold text-amber-800 cursor-pointer">
+                            <i class="fas fa-user-shield mr-2"></i>Создать учетную запись в системе
+                        </label>
+                    </div>
+                    <p class="text-sm text-amber-700 mb-4">Позволит участнику входить в систему и работать с документами</p>
+                    
+                    <div id="userFields" class="hidden space-y-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Логин для входа</label>
+                                <input name="username" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="login_name">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Пароль</label>
+                                <input name="password" type="password" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" placeholder="Оставьте пустым для автогенерации">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-600 uppercase mb-2">Роль в системе</label>
+                            <select name="userRole" class="w-full p-3 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition">
+                                <option value="volunteer">Волонтер (базовый доступ)</option>
+                                <option value="coordinator">Координатор (расширенный доступ)</option>
+                                <option value="donor">Благотворитель (просмотр)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-4 rounded-xl font-bold text-lg hover:from-emerald-700 hover:to-teal-700 transition shadow-lg hover:shadow-emerald-500/30">
+                    <i class="fas fa-save mr-2"></i>Сохранить участника
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Signing Modal -->
+    <div id="signModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 modal-enter text-center">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fas fa-file-signature"></i>
+            </div>
+            <h3 class="font-bold text-xl text-slate-800 mb-2">Подписание документа</h3>
+            <p class="text-sm text-slate-500 mb-6">Вы подтверждаете формирование официального документа. Будет сгенерирована электронная подпись.</p>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('signModal').classList.add('hidden')" class="flex-1 py-2 border border-slate-200 rounded-lg font-bold text-slate-600 hover:bg-slate-50">Отмена</button>
+                <button id="confirmSignBtn" class="flex-1 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-500/30">Подписать</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyDRMyiouLjL6oyQK5TIpr69b8mvCcq4uLE", authDomain: "blago-a6270.firebaseapp.com", databaseURL: "https://blago-a6270-default-rtdb.firebaseio.com", projectId: "blago-a6270", storageBucket: "blago-a6270.firebasestorage.app", messagingSenderId: "857823585303", appId: "1:857823585303:web:6ce2d1acff62b16ebd2852", measurementId: "G-YHWJPH8TF9" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const user = JSON.parse(localStorage.getItem('blago_user'));
+        if(!user) window.location.href = 'index.html';
+        
+        document.getElementById('myName').innerText = user.name;
+        document.getElementById('myRole').innerText = user.role;
+        document.getElementById('ava').innerText = user.name[0];
+        if(user.role==='admin') document.getElementById('adminBlock').classList.remove('hidden');
+        function logout(){localStorage.removeItem('blago_user'); window.location.href='index.html';}
+
+        let team = [];
+        let currentFilter = 'volunteer';
+
+        db.ref('team').on('value', snap => {
+            team = snap.val() || [];
+            render();
+        });
+
+        function filter(t){
+            currentFilter = t;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn'+(t==='volunteer'?'Vol':t==='donor'?'Don':'Par')).classList.add('active');
+            render();
+        }
+
+        function render(){
+            const list = team.filter(x => {
+                if(currentFilter === 'volunteer') return x.type === 'volunteer';
+                if(currentFilter === 'donor') return x.type === 'donor' || x.type === 'company';
+                return x.type === 'partner';
+            });
+
+            document.getElementById('grid').innerHTML = list.reverse().map(p => {
+                const typeLabels = {
+                    'volunteer': 'Волонтер',
+                    'donor': 'Благотворитель',
+                    'company': 'Организация',
+                    'partner': 'Партнерская организация'
+                };
+                
+                const typeColors = {
+                    'volunteer': 'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-800',
+                    'donor': 'bg-gradient-to-br from-green-100 to-green-200 text-green-800',
+                    'company': 'bg-gradient-to-br from-purple-100 to-purple-200 text-purple-800',
+                    'partner': 'bg-gradient-to-br from-amber-100 to-amber-200 text-amber-800'
+                };
+
+                const statusColors = {
+                    'active': 'bg-emerald-100 text-emerald-700',
+                    'inactive': 'bg-slate-100 text-slate-600',
+                    'pending': 'bg-yellow-100 text-yellow-700',
+                    'honorary': 'bg-gold-100 text-yellow-800'
+                };
+
+                const statusLabels = {
+                    'active': 'Активный',
+                    'inactive': 'Неактивный',
+                    'pending': 'На рассмотрении',
+                    'honorary': 'Почетный'
+                };
+
+                // Calculate member activity
+                const activityLevel = getActivityLevel(p);
+                const activityColor = activityLevel > 80 ? 'text-emerald-600' : activityLevel > 50 ? 'text-yellow-600' : 'text-slate-400';
+
+                return `
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg hover:border-emerald-200 transition-all duration-300 group relative overflow-hidden">
+                        <!-- Status indicator -->
+                        <div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition flex gap-2">
+                            <button onclick="editMember(${p.id})" class="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition" title="Редактировать">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button onclick="viewMemberDetails(${p.id})" class="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition" title="Подробности">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="del(${p.id})" class="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition" title="Удалить">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+
+                        <!-- Member avatar and basic info -->
+                        <div class="flex items-start gap-4 mb-4">
+                            <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center font-bold text-slate-600 text-2xl shadow-inner border-2 border-white">
+                                ${getInitials(p.name)}
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="font-bold text-slate-800 text-xl leading-tight mb-2">${p.name}</h4>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold ${typeColors[p.type] || typeColors.volunteer}">
+                                        ${typeLabels[p.type] || 'Участник'}
+                                    </span>
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold ${statusColors[p.status] || statusColors.active}">
+                                        ${statusLabels[p.status] || statusLabels.active}
+                                    </span>
+                                </div>
+                                ${p.role ? `<p class="text-sm text-slate-600 font-medium">${p.role}</p>` : ''}
+                            </div>
+                        </div>
+
+                        <!-- Contact information -->
+                        <div class="space-y-3 mb-4">
+                            <div class="flex items-center gap-3 text-sm">
+                                <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                                    <i class="fas fa-phone text-slate-500"></i>
+                                </div>
+                                <span class="${p.phone ? 'text-slate-700' : 'text-slate-400'}">${p.phone || 'Телефон не указан'}</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-sm">
+                                <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                                    <i class="fas fa-envelope text-slate-500"></i>
+                                </div>
+                                <span class="${p.email ? 'text-slate-700' : 'text-slate-400'}">${p.email || 'Email не указан'}</span>
+                            </div>
+                            <div class="flex items-center gap-3 text-sm">
+                                <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                                    <i class="fas fa-calendar text-slate-500"></i>
+                                </div>
+                                <span class="text-slate-700">
+                                    Член с ${p.joinDate || (p.createdAt ? p.createdAt.split(' ')[0] : 'не указано')}
+                                </span>
+                            </div>
+                            ${p.address ? `<div class="flex items-start gap-3 text-sm">
+                                <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center mt-0.5">
+                                    <i class="fas fa-map-marker-alt text-slate-500"></i>
+                                </div>
+                                <span class="text-slate-600 text-xs">${p.address.substring(0, 60)}${p.address.length > 60 ? '...' : ''}</span>
+                            </div>` : ''}
+                            ${p.inn ? `<div class="flex items-center gap-3 text-sm">
+                                <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                                    <i class="fas fa-building text-slate-500"></i>
+                                </div>
+                                <span class="text-slate-700">ИНН: ${p.inn}</span>
+                            </div>` : ''}
+                        </div>
+
+                        <!-- Activity and statistics -->
+                        <div class="bg-slate-50 rounded-lg p-3 mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Активность</span>
+                                <span class="text-xs font-bold ${activityColor}">${activityLevel}%</span>
+                            </div>
+                            <div class="w-full bg-slate-200 rounded-full h-2">
+                                <div class="h-2 rounded-full ${activityLevel > 80 ? 'bg-emerald-500' : activityLevel > 50 ? 'bg-yellow-500' : 'bg-slate-400'}" style="width: ${activityLevel}%"></div>
+                            </div>
+                            ${p.totalShipments ? `<div class="flex items-center justify-between mt-2 text-xs">
+                                <span class="text-slate-500">Отправок: <span class="font-bold text-slate-700">${p.totalShipments}</span></span>
+                                <span class="text-slate-500">Вкладов: <span class="font-bold text-slate-700">${p.totalContributions || 0}</span></span>
+                            </div>` : ''}
+                        </div>
+                        
+                        <!-- Action buttons -->
+                        <div class="flex gap-2">
+                            <button onclick='initPrint(${JSON.stringify(p)})' class="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm hover:from-emerald-600 hover:to-teal-600 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2">
+                                <i class="fas fa-award"></i> Благодарность
+                            </button>
+                            <button onclick="generateAgreement(${p.id})" class="px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-bold text-sm hover:from-blue-600 hover:to-indigo-600 transition-all shadow-md hover:shadow-lg" title="Соглашение о сотрудничестве">
+                                <i class="fas fa-file-contract"></i>
+                            </button>
+                            <button onclick="exportMemberData(${p.id})" class="px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-xl font-bold text-sm hover:from-purple-600 hover:to-pink-600 transition-all shadow-md hover:shadow-lg" title="Экспорт данных">
+                                <i class="fas fa-download"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Footer info -->
+                        <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <span class="text-slate-400">ID: ${p.id}</span>
+                            <span class="text-slate-400">Добавлен: ${p.createdBy || 'Система'}</span>
+                            ${p.lastModified ? `<span class="text-slate-400">Обновлен: ${new Date(p.lastModified).toLocaleDateString('ru-RU')}</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Helper functions for member display
+            function getInitials(name) {
+                if(!name) return 'У';
+                const parts = name.split(' ');
+                if(parts.length >= 2) {
+                    return (parts[0][0] + parts[1][0]).toUpperCase();
+                }
+                return name[0].toUpperCase();
+            }
+
+            function getActivityLevel(member) {
+                let score = 0;
+                
+                // Base score for being active member
+                if(member.status === 'active') score += 30;
+                
+                // Score for activity
+                if(member.totalShipments) score += Math.min(member.totalShipments * 10, 40);
+                if(member.totalContributions) score += Math.min(member.totalContributions * 5, 30);
+                
+                // Bonus for recent activity
+                if(member.lastActivity) {
+                    const daysSinceActivity = (Date.now() - new Date(member.lastActivity)) / (1000 * 60 * 60 * 24);
+                    if(daysSinceActivity < 30) score += 20;
+                    else if(daysSinceActivity < 90) score += 10;
+                }
+                
+                return Math.min(Math.round(score), 100);
+            }
+        }
+
+        function openModal(){ 
+            document.getElementById('modal').classList.remove('hidden');
+            
+            // Reset form
+            const form = document.querySelector('#modal form');
+            form.reset();
+            form.type.value = 'volunteer';
+            
+            // Show/hide appropriate fields
+            toggleFields();
+            toggleUserFields();
+            
+            // Restore save button
+            const submitBtn = form.querySelector('button');
+            submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Сохранить участника';
+            submitBtn.onclick = saveMember;
+            
+            // Set default dates
+            const today = new Date().toISOString().split('T')[0];
+            form.joinDate.value = today;
+            form.birthDate.value = '';
+            
+            // Clear role suggestions
+            updateRoleSuggestions();
+        }
+
+        function closeModal(){ 
+            document.getElementById('modal').classList.add('hidden'); 
+        }
+
+        // Role suggestions for better UX
+        const roleSuggestions = {
+            volunteer: [
+                'Водитель', 'Координатор', 'Волонтер-помощник', 'Организатор мероприятий',
+                'Фотограф', 'Волонтер на складе', 'Курьер', 'Помощник по документам',
+                'Помощник в приеме грузов', 'Волонтер по связям с общественностью'
+            ],
+            donor: [
+                'Благотворитель', 'Спонсор', 'Партнер', 'Друг организации',
+                'Постоянный помощник', 'Меценат'
+            ],
+            company: [
+                'Корпоративный партнер', 'Спонсорская организация',
+                'Партнер по логистике', 'Поставщик услуг'
+            ],
+            partner: [
+                'Общественная организация', 'Благотворительный фонд',
+                'Социальная служба', 'Медицинское учреждение',
+                'Образовательное учреждение', 'Религиозная организация'
+            ]
+        };
+
+        function toggleFields() {
+            const type = document.getElementById('memberType').value;
+            const personalFields = document.getElementById('personalFields');
+            const companyFields = document.getElementById('companyFields');
+            const roleInput = document.getElementById('roleInput');
+            
+            // Show/hide appropriate fields
+            if(type === 'company' || type === 'partner') {
+                personalFields.classList.add('hidden');
+                companyFields.classList.remove('hidden');
+                
+                // Update validation
+                document.querySelector('input[name="surname"]').required = false;
+                document.querySelector('input[name="name"]').required = false;
+                document.querySelector('input[name="companyName"]').required = true;
+                
+                // Update role suggestions for organizations
+                updateRoleSuggestions();
+            } else {
+                personalFields.classList.remove('hidden');
+                companyFields.classList.add('hidden');
+                
+                // Update validation
+                document.querySelector('input[name="surname"]').required = true;
+                document.querySelector('input[name="name"]').required = true;
+                document.querySelector('input[name="companyName"]').required = false;
+                
+                // Update role suggestions for individuals
+                updateRoleSuggestions();
+            }
+        }
+            
+        function updateRoleSuggestions() {
+            const type = document.getElementById('memberType').value;
+            const roleInput = document.getElementById('roleInput');
+            const suggestionsDiv = document.getElementById('roleSuggestions');
+            
+            const suggestions = roleSuggestions[type] || [];
+            
+            if(suggestions.length > 0) {
+                suggestionsDiv.innerHTML = `
+                    <div class="text-slate-600 mb-2">Популярные роли:</div>
+                    <div class="flex flex-wrap gap-2">
+                        ${suggestions.slice(0, 6).map(role => 
+                            `<button type="button" onclick="selectRole('${role}')" class="px-2 py-1 bg-white border border-slate-300 rounded text-xs hover:bg-emerald-50 hover:border-emerald-300 transition">${role}</button>`
+                        ).join('')}
+                    </div>
+                `;
+                suggestionsDiv.classList.remove('hidden');
+            } else {
+                suggestionsDiv.classList.add('hidden');
+            }
+        }
+
+        function selectRole(role) {
+            document.getElementById('roleInput').value = role;
+        }
+
+        function toggleUserFields() {
+            const checkbox = document.getElementById('cu');
+            const userFields = document.getElementById('userFields');
+            const usernameField = document.querySelector('input[name="username"]');
+            const type = document.getElementById('memberType').value;
+            
+            userFields.classList.toggle('hidden', !checkbox.checked);
+            
+            if(checkbox.checked && type) {
+                // Auto-generate username based on type
+                if(!usernameField.value) {
+                    const surname = document.querySelector('input[name="surname"]')?.value || '';
+                    const companyName = document.querySelector('input[name="companyName"]')?.value || '';
+                    
+                    let baseName = '';
+                    if(type === 'company' || type === 'partner') {
+                        baseName = companyName.toLowerCase().replace(/[^а-яёa-z0-9]/g, '').substring(0, 10);
+                    } else {
+                        baseName = (surname + (document.querySelector('input[name="name"]')?.value || '')).toLowerCase().replace(/[^а-яёa-z]/g, '').substring(0, 8);
+                    }
+                    
+                    usernameField.value = baseName || `user_${Date.now()}`;
+                }
+            }
+        }
+
+        document.getElementById('cu').addEventListener('change', toggleUserFields);
+
+        async function saveMember(e){
+            e.preventDefault();
+            const f = e.target;
+            
+            // Validation
+            if(!validateForm(f)) {
+                return;
+            }
+            
+            // Show loading state
+            const submitBtn = f.querySelector('button');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Сохранение...';
+            submitBtn.disabled = true;
+            
+            try {
+                // Forming full name based on participant type
+                let fullName = '';
+                if(f.type.value === 'company' || f.type.value === 'partner') {
+                    fullName = f.companyName.value.trim();
+                } else {
+                    fullName = `${f.surname.value.trim()} ${f.name.value.trim()} ${f.patronymic.value || ''}`.trim();
+                }
+                
+                // Date handling with timezone support
+                let dateStr = new Date().toLocaleDateString('ru-RU');
+                if(f.joinDate.value) {
+                    const d = new Date(f.joinDate.value);
+                    dateStr = d.toLocaleDateString('ru-RU');
+                }
+
+                // Prepare participant data
+                const memberData = {
+                    id: Date.now(),
+                    type: f.type.value,
+                    name: fullName,
+                    
+                    // Personal data
+                    surname: f.surname?.value || '',
+                    firstName: f.name?.value || '',
+                    patronymic: f.patronymic?.value || '',
+                    birthDate: f.birthDate?.value || '',
+                    gender: f.gender?.value || '',
+                    
+                    // Company data
+                    companyName: f.companyName?.value || '',
+                    inn: f.inn?.value || '',
+                    kpp: f.kpp?.value || '',
+                    ogrn: f.ogrn?.value || '',
+                    
+                    // Contact data
+                    phone: f.phone.value.trim(),
+                    email: f.email.value.trim(),
+                    address: f.address?.value || '',
+                    
+                    // Organization data
+                    role: f.role.value.trim(),
+                    joinDate: dateStr,
+                    status: f.status.value || 'active',
+                    skills: f.skills?.value || '',
+                    notes: f.notes?.value || '',
+                    
+                    // System data
+                    createdAt: new Date().toISOString(),
+                    createdBy: user.name,
+                    createdById: user.id,
+                    lastModified: new Date().toISOString(),
+                    
+                    // Statistics
+                    totalShipments: 0,
+                    totalContributions: 0,
+                    lastActivity: null
+                };
+
+                // Save participant
+                const snapshot = await db.ref('team').once('value');
+                const list = snapshot.val() || [];
+                list.push(memberData);
+                await db.ref('team').set(list);
+
+                // Create system account if requested
+                let accountInfo = '';
+                if(f.createUser.checked) {
+                    const userSnapshot = await db.ref('users').once('value');
+                    const users = userSnapshot.val() || [];
+                    
+                    // Generate credentials
+                    const username = f.username.value.trim() || generateUsername(f, fullName);
+                    const password = f.password.value.trim() || generatePassword();
+                    
+                    const newUser = {
+                        id: Date.now(),
+                        name: fullName,
+                        username: username,
+                        role: f.userRole.value,
+                        password: password,
+                        email: f.email.value.trim(),
+                        phone: f.phone.value.trim(),
+                        active: true,
+                        memberId: memberData.id,
+                        createdAt: new Date().toISOString(),
+                        permissions: getPermissionsByRole(f.userRole.value)
+                    };
+                    
+                    users.push(newUser);
+                    await db.ref('users').set(users);
+                    
+                    accountInfo = `\n\nУчетная запись создана:\nЛогин: ${username}\nПароль: ${password}`;
+                }
+                
+                // Log activity
+                await db.ref('activities').push({
+                    text: `Добавлен новый ${getParticipantTypeLabel(f.type.value)}: ${fullName}`,
+                    date: new Date().toLocaleString('ru-RU'),
+                    user: user.name,
+                    type: 'member_added',
+                    memberId: memberData.id,
+                    timestamp: Date.now()
+                });
+                
+                // Success message
+                const successMessage = `Участник "${fullName}" успешно добавлен в систему!${accountInfo}`;
+                alert(successMessage);
+                
+                closeModal();
+                
+            } catch (error) {
+                console.error('Ошибка при сохранении участника:', error);
+                alert('Произошла ошибка при сохранении участника. Пожалуйста, попробуйте еще раз.');
+            } finally {
+                // Restore button state
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        function validateForm(f) {
+            // Required fields validation
+            const requiredFields = ['surname', 'name', 'phone', 'role'];
+            const companyRequired = ['companyName'];
+            
+            if(f.type.value === 'company' || f.type.value === 'partner') {
+                requiredFields.push(...companyRequired);
+            }
+            
+            for(const fieldName of requiredFields) {
+                const field = f.querySelector(`[name="${fieldName}"]`);
+                if(field && !field.value.trim()) {
+                    alert(`Поле "${field.previousElementSibling.textContent}" обязательно для заполнения`);
+                    field.focus();
+                    return false;
+                }
+            }
+            
+            // Email validation
+            if(f.email.value && !isValidEmail(f.email.value)) {
+                alert('Пожалуйста, введите корректный адрес электронной почты');
+                f.email.focus();
+                return false;
+            }
+            
+            // Phone validation
+            if(f.phone.value && !isValidPhone(f.phone.value)) {
+                alert('Пожалуйста, введите корректный номер телефона');
+                f.phone.focus();
+                return false;
+            }
+            
+            return true;
+        }
+
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        function isValidPhone(phone) {
+            const phoneRegex = /^[\+]?[7|8]?[\s\-]?\(?[489][0-9]{2}\)?[\s\-]?[0-9]{3}[\s\-]?[0-9]{2}[\s\-]?[0-9]{2}$/;
+            return phoneRegex.test(phone.replace(/\s/g, ''));
+        }
+
+        function generateUsername(f, fullName) {
+            const type = f.type.value;
+            if(type === 'company' || type === 'partner') {
+                return fullName.toLowerCase().replace(/[^а-яёa-z0-9]/g, '').substring(0, 12);
+            } else {
+                return (f.surname.value + f.name.value).toLowerCase().replace(/[^а-яёa-z]/g, '').substring(0, 10);
+            }
+        }
+            
+        function generatePassword() {
+            return Math.random().toString(36).substring(2, 10);
+        }
+
+        function getPermissionsByRole(role) {
+            const permissions = {
+                volunteer: ['view_own_data', 'update_profile'],
+                coordinator: ['view_all_data', 'create_shipments', 'manage_inventory', 'view_reports'],
+                donor: ['view_own_data', 'view_organization_info']
+            };
+            return permissions[role] || permissions.volunteer;
+        }
+
+        function getParticipantTypeLabel(type) {
+            const labels = {
+                'volunteer': 'волонтер',
+                'donor': 'благотворитель',
+                'company': 'организация-партнер',
+                'partner': 'партнерская организация'
+            };
+            return labels[type] || 'участник';
+        }
+
+        function editMember(id) {
+            // Найти участника для редактирования
+            const member = team.find(x => x.id === id);
+            if(!member) return;
+            
+            // Заполнить форму текущими данными
+            const form = document.querySelector('#modal form');
+            form.type.value = member.type;
+            form.surname.value = member.surname || '';
+            form.name.value = member.firstName || '';
+            form.patronymic.value = member.patronymic || '';
+            form.companyName.value = member.companyName || '';
+            form.inn.value = member.inn || '';
+            form.kpp.value = member.kpp || '';
+            form.phone.value = member.phone || '';
+            form.email.value = member.email || '';
+            form.role.value = member.role || '';
+            
+            // Установить дату вступления
+            if(member.joinDate) {
+                const date = new Date(member.joinDate.split('.').reverse().join('-'));
+                form.joinDate.value = date.toISOString().split('T')[0];
+            }
+            
+            // Переключить поля
+            toggleFields();
+            
+            // Изменить кнопку сохранения
+            const submitBtn = form.querySelector('button');
+            submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Обновить участника';
+            submitBtn.onclick = (e) => updateMember(e, id);
+            
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        async function updateMember(e, id) {
+            e.preventDefault();
+            const f = e.target;
+            
+            let fullName = '';
+            if(f.type.value === 'company' || f.type.value === 'partner') {
+                fullName = f.companyName.value;
+            } else {
+                fullName = `${f.surname.value} ${f.name.value} ${f.patronymic.value}`.trim();
+            }
+            
+            const updatedMember = {
+                ...team.find(x => x.id === id),
+                type: f.type.value,
+                name: fullName,
+                surname: f.surname?.value || '',
+                firstName: f.name?.value || '',
+                patronymic: f.patronymic?.value || '',
+                companyName: f.companyName?.value || '',
+                inn: f.inn?.value || '',
+                kpp: f.kpp?.value || '',
+                phone: f.phone.value,
+                email: f.email.value,
+                role: f.role.value,
+                joinDate: f.joinDate.value ? new Date(f.joinDate.value).toLocaleDateString('ru-RU') : '',
+                updatedAt: new Date().toLocaleString('ru-RU'),
+                updatedBy: user.name
+            };
+
+            try {
+                const snapshot = await db.ref('team').once('value');
+                const list = snapshot.val() || [];
+                const updatedList = list.map(x => x.id === id ? updatedMember : x);
+                await db.ref('team').set(updatedList);
+                
+                alert(`Участник "${fullName}" успешно обновлен!`);
+                closeModal();
+                
+                // Восстановить кнопку сохранения
+                const submitBtn = f.querySelector('button');
+                submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Сохранить участника';
+                submitBtn.onclick = saveMember;
+                
+            } catch (error) {
+                console.error('Ошибка при обновлении:', error);
+                alert('Произошла ошибка при обновлении участника');
+            }
+        }
+
+        function viewMemberDetails(id) {
+            const member = team.find(x => x.id === id);
+            if(!member) return;
+            
+            const detailModal = document.createElement('div');
+            detailModal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4';
+            detailModal.innerHTML = `
+                <div class="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+                    <div class="sticky top-0 bg-white border-b border-slate-200 p-6 flex justify-between items-center">
+                        <h3 class="text-2xl font-bold text-slate-800">Профиль участника</h3>
+                        <button onclick="this.closest('.fixed').remove()" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Basic Info -->
+                            <div class="lg:col-span-1">
+                                <div class="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-6 text-center">
+                                    <div class="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center font-bold text-slate-600 text-3xl shadow-inner mb-4">
+                                        ${getInitials(member.name)}
+                                    </div>
+                                    <h4 class="text-xl font-bold text-slate-800 mb-2">${member.name}</h4>
+                                    <p class="text-slate-600 mb-4">${member.role || 'Участник организации'}</p>
+                                    <div class="flex flex-wrap gap-2 justify-center">
+                                        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-bold">${getParticipantTypeLabel(member.type)}</span>
+                                        <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold">${getStatusLabel(member.status)}</span>
+                                    </div>
+                                </div>
+                            </div>
+                    
+                            <!-- Detailed Information -->
+                            <div class="lg:col-span-2 space-y-6">
+                                <!-- Personal Information -->
+                                ${member.surname || member.firstName ? `
+                                <div class="bg-white border border-slate-200 rounded-xl p-6">
+                                    <h5 class="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                                        <i class="fas fa-user text-blue-500"></i>Личная информация
+                                    </h5>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        ${member.surname ? `<div><label class="text-sm font-bold text-slate-500">Фамилия</label><p class="text-slate-800">${member.surname}</p></div>` : ''}
+                                        ${member.firstName ? `<div><label class="text-sm font-bold text-slate-500">Имя</label><p class="text-slate-800">${member.firstName}</p></div>` : ''}
+                                        ${member.patronymic ? `<div><label class="text-sm font-bold text-slate-500">Отчество</label><p class="text-slate-800">${member.patronymic}</p></div>` : ''}
+                                        ${member.birthDate ? `<div><label class="text-sm font-bold text-slate-500">Дата рождения</label><p class="text-slate-800">${new Date(member.birthDate).toLocaleDateString('ru-RU')}</p></div>` : ''}
+                                        ${member.gender ? `<div><label class="text-sm font-bold text-slate-500">Пол</label><p class="text-slate-800">${member.gender === 'male' ? 'Мужской' : member.gender === 'female' ? 'Женский' : member.gender}</p></div>` : ''}
+                                    </div>
+                                </div>
+                                ` : ''}
+                                
+                                <!-- Contact Information -->
+                                <div class="bg-white border border-slate-200 rounded-xl p-6">
+                                    <h5 class="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                                        <i class="fas fa-address-book text-green-500"></i>Контактная информация
+                                    </h5>
+                                    <div class="space-y-3">
+                                        ${member.phone ? `
+                                            <div class="flex items-center gap-3">
+                                                <i class="fas fa-phone text-slate-400"></i>
+                                                <div>
+                                                    <p class="text-sm font-bold text-slate-500">Телефон</p>
+                                                    <p class="text-slate-800">${member.phone}</p>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                        ${member.email ? `
+                                            <div class="flex items-center gap-3">
+                                                <i class="fas fa-envelope text-slate-400"></i>
+                                                <div>
+                                                    <p class="text-sm font-bold text-slate-500">Email</p>
+                                                    <p class="text-slate-800">${member.email}</p>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                        ${member.address ? `
+                                            <div class="flex items-start gap-3">
+                                                <i class="fas fa-map-marker-alt text-slate-400 mt-1"></i>
+                                                <div>
+                                                    <p class="text-sm font-bold text-slate-500">Адрес</p>
+                                                    <p class="text-slate-800">${member.address}</p>
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                                
+                                <!-- Organization Information -->
+                                <div class="bg-white border border-slate-200 rounded-xl p-6">
+                                    <h5 class="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                                        <i class="fas fa-calendar-check text-purple-500"></i>Участие в организации
+                                    </h5>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <p class="text-sm font-bold text-slate-500">Дата вступления</p>
+                                            <p class="text-slate-800">${member.joinDate || 'Не указана'}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-bold text-slate-500">Текущий статус</p>
+                                            <p class="text-slate-800">${getStatusLabel(member.status)}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-bold text-slate-500">Ответственный за добавление</p>
+                                            <p class="text-slate-800">${member.createdBy || 'Система'}</p>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-bold text-slate-500">Дата создания записи</p>
+                                            <p class="text-slate-800">${member.createdAt ? new Date(member.createdAt).toLocaleString('ru-RU') : 'Не указана'}</p>
+                                        </div>
+                                    </div>
+                                    ${member.skills ? `
+                                        <div class="mt-4">
+                                            <p class="text-sm font-bold text-slate-500 mb-2">Навыки и компетенции</p>
+                                            <p class="text-slate-800 bg-slate-50 p-3 rounded-lg">${member.skills}</p>
+                                        </div>
+                                    ` : ''}
+                                    ${member.notes ? `
+                                        <div class="mt-4">
+                                            <p class="text-sm font-bold text-slate-500 mb-2">Примечания</p>
+                                            <p class="text-slate-800 bg-slate-50 p-3 rounded-lg">${member.notes}</p>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                
+                                <!-- Statistics -->
+                                <div class="bg-white border border-slate-200 rounded-xl p-6">
+                                    <h5 class="font-bold text-slate-800 text-lg mb-4 flex items-center gap-2">
+                                        <i class="fas fa-chart-bar text-orange-500"></i>Статистика участия
+                                    </h5>
+                                    <div class="grid grid-cols-3 gap-4">
+                                        <div class="text-center">
+                                            <div class="text-2xl font-bold text-blue-600">${member.totalShipments || 0}</div>
+                                            <div class="text-sm text-slate-500">Отправок</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="text-2xl font-bold text-green-600">${member.totalContributions || 0}</div>
+                                            <div class="text-sm text-slate-500">Вкладов</div>
+                                        </div>
+                                        <div class="text-center">
+                                            <div class="text-2xl font-bold text-purple-600">${getActivityLevel(member)}%</div>
+                                            <div class="text-sm text-slate-500">Активность</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="sticky bottom-0 bg-slate-50 border-t border-slate-200 p-6 flex justify-end gap-3">
+                        <button onclick="editMember(${member.id}); this.closest('.fixed').remove();" class="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition flex items-center gap-2">
+                            <i class="fas fa-edit"></i>Редактировать
+                        </button>
+                        <button onclick="exportMemberData(${member.id}); this.closest('.fixed').remove();" class="px-6 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition flex items-center gap-2">
+                            <i class="fas fa-download"></i>Экспорт
+                        </button>
+                        <button onclick="this.closest('.fixed').remove()" class="px-6 py-3 border border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition">
+                            Закрыть
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(detailModal);
+        }
+
+        function exportMemberData(id) {
+            const member = team.find(x => x.id === id);
+            if(!member) return;
+            
+            const memberData = {
+                ...member,
+                exportedAt: new Date().toISOString(),
+                exportedBy: user.name
+            };
+            
+            const blob = new Blob([JSON.stringify(memberData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `member_${member.name.replace(/\s+/g, '_')}_${id}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert(`Данные участника "${member.name}" экспортированы в файл`);
+        }
+
+        function getStatusLabel(status) {
+            const labels = {
+                'active': 'Активный',
+                'inactive': 'Неактивный',
+                'pending': 'На рассмотрении',
+                'honorary': 'Почетный участник'
+            };
+            return labels[status] || 'Неизвестно';
+        }
+
+        function del(id){
+            const member = team.find(x => x.id === id);
+            if(confirm(`Удалить участника "${member?.name}" из базы?\n\nЭто действие нельзя отменить.`)) {
+                db.ref('team').once('value').then(snap => {
+                    const list = snap.val().filter(x => x.id !== id);
+                    db.ref('team').set(list);
+                    
+                    // Log activity
+                    db.ref('activities').push({
+                        text: `Удален участник: ${member?.name}`,
+                        date: new Date().toLocaleString('ru-RU'),
+                        user: user.name,
+                        type: 'member_deleted',
+                        timestamp: Date.now()
+                    });
+                });
+            }
+        }
+
+        function generateAgreement(id) {
+            const member = team.find(x => x.id === id);
+            if(!member) return;
+            
+            const w = window.open('','','width=900,height=1000');
+            const currentDate = new Date().toLocaleDateString('ru-RU');
+            
+            const agreementText = member.type === 'volunteer' ? 
+                `на оказание волонтерских услуг` :
+                member.type === 'donor' ?
+                `на благотворительную деятельность` :
+                `о сотрудничестве`;
+                
+            w.document.write(`
+                <html><head><title>Соглашение о сотрудничестве</title>
+                <style>
+                    @page { size: A4; margin: 20mm; }
+                    body { font-family: 'Times New Roman', serif; line-height: 1.6; }
+                    .header { text-align: center; margin-bottom: 30px; }
+                    .title { font-size: 18px; font-weight: bold; text-decoration: underline; margin: 20px 0; }
+                    .content { text-align: justify; margin: 20px 0; }
+                    .signatures { margin-top: 50px; display: flex; justify-content: space-between; }
+                    .signature-box { width: 45%; border: 1px solid #000; padding: 15px; }
+                </style>
+                </head><body>
+                <div class="header">
+                    <h2>ВОЛОНТЕРСКАЯ ГРУППА «БЛАГО ДАРИТЬ»</h2>
+                    <h3>СОГЛАШЕНИЕ ${agreementText.toUpperCase()}</h3>
+                    <p>№ ${id} от ${currentDate}</p>
+                </div>
+                
+                <div class="content">
+                    <p><strong>СТОРОНЫ:</strong></p>
+                    <p>1. Волонтерская группа «Благо дарить», в лице руководителя Яковлевой О.А., действующей на основании Устава, именуемая в дальнейшем «Организация»</p>
+                    <p>2. ${member.name}, ${member.role || 'участник'}, именуемый(ая) в дальнейшем «Участник»</p>
+                    
+                    <div class="title">1. ПРЕДМЕТ СОГЛАШЕНИЯ</div>
+                    <p>1.1. Стороны договорились о ${agreementText} на добровольной основе.</p>
+                    <p>1.2. Участник обязуется оказывать содействие в достижении целей Организации.</p>
+                    
+                    <div class="title">2. ПРАВА И ОБЯЗАННОСТИ СТОРОН</div>
+                    <p>2.1. Участник имеет право:</p>
+                    <p>• Получать информацию о деятельности Организации</p>
+                    <p>• Участвовать в мероприятиях Организации</p>
+                    <p>• Получать благодарности и поощрения</p>
+                    
+                    <p>2.2. Участник обязуется:</p>
+                    <p>• Соблюдать принципы и цели Организации</p>
+                    <p>• Добросовестно выполнять принятые обязательства</p>
+                    <p>• Содействовать укреплению репутации Организации</p>
+                    
+                    <div class="title">3. ЗАКЛЮЧИТЕЛЬНЫЕ ПОЛОЖЕНИЯ</div>
+                    <p>3.1. Настоящее Соглашение вступает в силу с момента его подписания.</p>
+                    <p>3.2. Соглашение может быть расторгнуто по взаимному согласию Сторон.</p>
+                    
+                    <p><strong>Подписи Сторон:</strong></p>
+                </div>
+                
+                <div class="signatures">
+                    <div class="signature-box">
+                        <p><strong>ОРГАНИЗАЦИЯ:</strong></p>
+                        <p>Волонтерская группа «Благо дарить»</p>
+                        <p style="margin-top: 30px;">________________ / Яковлева О.А. /</p>
+                        <p style="font-size: 12px;">Руководитель</p>
+                        <p style="margin-top: 20px; font-size: 12px;">М.П.</p>
+                    </div>
+                    
+                    <div class="signature-box">
+                        <p><strong>УЧАСТНИК:</strong></p>
+                        <p>${member.name}</p>
+                        <p style="margin-top: 30px;">________________ / ${member.name} /</p>
+                        <p style="font-size: 12px;">${member.role || 'Участник'}</p>
+                        <p style="margin-top: 20px; font-size: 12px;">Подпись</p>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 30px; padding: 10px; border: 1px solid #ccc; font-size: 12px;">
+                    <strong>ЭЛЕКТРОННАЯ ПОДПИСЬ:</strong><br>
+                    Документ создан: ${currentDate}<br>
+                    Создатель: ${user.name} (${user.role})<br>
+                    Хеш документа: SHA256:${btoa(`${user.name}:${currentDate}:${member.name}:${id}`).replace(/=/g, '')}
+                </div>
+                </body></html>
+            `);
+            w.document.close();
+        }
+
+        let pendingPrint = null;
+        function initPrint(p) {
+            pendingPrint = p;
+            document.getElementById('signModal').classList.remove('hidden');
+            document.getElementById('confirmSignBtn').onclick = () => {
+                printLetter(pendingPrint);
+                document.getElementById('signModal').classList.add('hidden');
+            };
+        }
+
+        function declineName(member, type) {
+            if(type === 'company' || type === 'partner') return member.companyName || member.name;
+            
+            // Для физических лиц используем структурированные данные
+            let surname = member.surname || '';
+            let firstName = member.firstName || '';
+            let patronymic = member.patronymic || '';
+            
+            if(!surname || !firstName) {
+                // Fallback для старых записей
+                const parts = member.name.split(' ');
+                surname = parts[0] || '';
+                firstName = parts[1] || '';
+                patronymic = parts[2] || '';
+            }
+            
+            let res = [];
+            
+            // Склонение фамилии
+            if(surname.endsWith('ов') || surname.endsWith('ев') || surname.endsWith('ин')) {
+                surname += 'у';
+            } else if(surname.endsWith('ая')) {
+                surname = surname.slice(0,-2) + 'ой';
+            } else if(surname.endsWith('ова')) {
+                surname = surname.slice(0,-1) + 'ой';
+            }
+            res.push(surname);
+
+            // Склонение имени
+            if(firstName.endsWith('й')) {
+                firstName = firstName.slice(0,-1) + 'ю';
+            } else if(firstName.endsWith('а')) {
+                firstName = firstName.slice(0,-1) + 'е';
+            } else if(firstName.endsWith('я')) {
+                firstName = firstName.slice(0,-1) + 'е';
+            } else {
+                firstName += 'у';
+            }
+            res.push(firstName);
+
+            // Склонение отчества
+            if(patronymic) {
+                if(patronymic.endsWith('ич')) {
+                    patronymic += 'у';
+                } else if(patronymic.endsWith('на')) {
+                    patronymic = patronymic.slice(0,-1) + 'е';
+                }
+                res.push(patronymic);
+            }
+            
+            return res.join(' ');
+        }
+
+        function printLetter(p){
+            const w = window.open('','','width=900,height=1000');
+            const dName = declineName(p, p.type);
+            const currentDateTime = new Date().toLocaleString('ru-RU');
+            const hash = `SHA256:${btoa(`${user.name}:${currentDateTime}:${p.name}:${p.type}:${p.id}`).replace(/=/g, '')}`;
+            
+            // Enhanced personalized text based on participant type and details
+            let gratitudeText = '';
+            let additionalText = '';
+            
+            if(p.type === 'volunteer') {
+                const roleText = p.role ? ` в качестве ${p.role.toLowerCase()}` : '';
+                gratitudeText = `за активную гражданскую позицию, неравнодушие и личный вклад${roleText} в оказание гуманитарной помощи участникам специальной военной операции.`;
+                additionalText = 'Ваша добровольческая деятельность, самоотверженность и готовность помогать другим бесценны. Каждый час, проведенный на благо нуждающихся, приближает нашу общую Победу и вселяет надежду в сердца людей.';
+            } else if(p.type === 'donor') {
+                gratitudeText = 'за активную гражданскую позицию, неравнодушие и значительную благотворительную помощь участникам специальной военной операции.';
+                additionalText = 'Ваша щедрость и готовность поддержать тех, кто в этом нуждается, является примером истинного патриотизма и человечности. Ваша помощь помогает сохранить жизни и дает надежду на лучшее будущее.';
+            } else if(p.type === 'company') {
+                gratitudeText = 'за активную гражданскую позицию, социальную ответственность и значительную благотворительную помощь как юридическое лицо участникам специальной военной операции.';
+                additionalText = 'Поддержка Вашей организации демонстрирует высокие принципы корпоративной социальной ответственности и готовность вносить вклад в общее дело помощи. Ваше участие в благотворительности вдохновляет других следовать Вашему примеру.';
+            } else {
+                gratitudeText = 'за активную гражданскую позицию, неравнодушие и плодотворное сотрудничество в оказании гуманитарной помощи участникам специальной военной операции.';
+                additionalText = 'Ваше участие в нашем деле является важным звеном в цепочке помощи и поддержки. Совместными усилиями мы создаем основу для стабильного будущего и помогаем тем, кто в этом нуждается.';
+            }
+            
+            // Add special achievements if available
+            let achievementsText = '';
+            if(p.totalShipments && p.totalShipments > 0) {
+                achievementsText += `За время сотрудничества было организовано ${p.totalShipments} отправок гуманитарной помощи. `;
+            }
+            if(p.notes && p.notes.length > 0) {
+                achievementsText += `Особо отмечаем Ваши профессиональные качества и личностные качества: ${p.notes.substring(0, 100)}...`;
+            }
+            
+            w.document.write(`
+                <html><head><title>Благодарность</title>
+                <style>
+                    @page { size: A4; margin: 0; }
+                    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Open+Sans:wght@400;600;700&family=Cormorant+Garamond:wght@400;600;700&display=swap');
+                    body { margin: 0; padding: 0; font-family: 'Playfair Display', serif; background: #fff; }
+                    .sheet { 
+                        width: 210mm; height: 296mm; position: relative; 
+                        padding: 25mm; box-sizing: border-box; 
+                        border: 20px double #D4AF37; 
+                        background-image: radial-gradient(#D4AF37 1px, transparent 1px);
+                        background-size: 40px 40px;
+                        background-color: #fffef7;
+                    }
+                    .corner { position: absolute; width: 100px; height: 100px; border: 4px solid #D4AF37; }
+                    .tl { top: 20px; left: 20px; border-right: 0; border-bottom: 0; border-radius: 0 0 100% 0; }
+                    .tr { top: 20px; right: 20px; border-left: 0; border-bottom: 0; border-radius: 0 0 0 100%; }
+                    .bl { bottom: 20px; left: 20px; border-right: 0; border-top: 0; border-radius: 0 100% 0 0; }
+                    .br { bottom: 20px; right: 20px; border-left: 0; border-top: 0; border-radius: 100% 0 0 0; }
+                    
+                    .header { text-align: center; margin-top: 10mm; margin-bottom: 20mm; }
+                    .logo { font-size: 60px; color: #D4AF37; margin-bottom: 15px; text-shadow: 2px 2px 4px rgba(0,0,0,0.1); }
+                    .org { 
+                        font-family: 'Cormorant Garamond', serif; 
+                        text-transform: uppercase; 
+                        letter-spacing: 5px; 
+                        font-size: 16px; 
+                        color: #2C3E50; 
+                        font-weight: 600;
+                        margin-bottom: 5px;
+                    }
+                    .title { 
+                        font-size: 72px; 
+                        color: #D4AF37; 
+                        margin: 25px 0; 
+                        font-weight: 700; 
+                        text-transform: uppercase; 
+                        letter-spacing: 8px; 
+                        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+                    }
+                    .subtitle { 
+                        font-family: 'Open Sans', sans-serif; 
+                        font-size: 14px; 
+                        color: #7F8C8D; 
+                        text-transform: uppercase; 
+                        letter-spacing: 3px; 
+                        font-weight: 600;
+                    }
+                    
+                    .content { text-align: center; margin-top: 20mm; margin-bottom: 15mm; }
+                    .to { 
+                        font-family: 'Open Sans', sans-serif; 
+                        font-size: 20px; 
+                        color: #7F8C8D; 
+                        font-style: italic; 
+                        margin-bottom: 15px; 
+                        text-transform: uppercase;
+                        letter-spacing: 2px;
+                    }
+                    .name { 
+                        font-size: 38px; 
+                        font-weight: 700; 
+                        color: #2C3E50; 
+                        margin-bottom: 30px; 
+                        border-bottom: 3px solid #D4AF37; 
+                        display: inline-block; 
+                        padding-bottom: 15px; 
+                        max-width: 90%; 
+                        word-wrap: break-word;
+                        font-family: 'Cormorant Garamond', serif;
+                    }
+                    .text { 
+                        font-family: 'Open Sans', sans-serif; 
+                        font-size: 18px; 
+                        line-height: 1.9; 
+                        max-width: 90%; 
+                        margin: 0 auto; 
+                        color: #34495E; 
+                        text-align: justify; 
+                        margin-bottom: 25px;
+                    }
+                    .additional { 
+                        font-family: 'Open Sans', sans-serif; 
+                        font-size: 16px; 
+                        line-height: 1.8; 
+                        max-width: 90%; 
+                        margin: 0 auto; 
+                        color: #2C3E50; 
+                        text-align: justify; 
+                        font-style: italic;
+                        margin-bottom: 20px;
+                    }
+                    .achievements { 
+                        font-family: 'Open Sans', sans-serif; 
+                        font-size: 15px; 
+                        line-height: 1.7; 
+                        max-width: 90%; 
+                        margin: 0 auto; 
+                        color: #27AE60; 
+                        text-align: justify; 
+                        font-weight: 600;
+                        background: rgba(39, 174, 96, 0.1);
+                        padding: 20px;
+                        border-radius: 10px;
+                        border-left: 5px solid #27AE60;
+                    }
+                    
+                    .footer { 
+                        position: absolute; 
+                        bottom: 20mm; 
+                        left: 25mm; 
+                        right: 25mm; 
+                        display: flex; 
+                        justify-content: space-between; 
+                        align-items: flex-end; 
+                    }
+                    
+                    .pep { 
+                        border: 3px solid #27AE60; 
+                        padding: 15px; 
+                        color: #27AE60; 
+                        font-family: 'Open Sans', sans-serif; 
+                        font-size: 11px; 
+                        width: 320px;
+                        background: rgba(255, 255, 255, 0.95);
+                        border-radius: 8px;
+                        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                    }
+                    .sign { 
+                        text-align: right; 
+                        font-family: 'Open Sans', sans-serif; 
+                        font-size: 16px; 
+                        width: 280px;
+                    }
+                    .sign-line { 
+                        margin-top: 50px; 
+                        border-top: 2px solid #2C3E50; 
+                        width: 220px; 
+                        margin-left: auto; 
+                    }
+                    .doc-info { 
+                        position: absolute; 
+                        top: 15mm; 
+                        right: 15mm; 
+                        font-family: 'Open Sans', sans-serif; 
+                        font-size: 13px; 
+                        color: #7F8C8D; 
+                        text-align: right; 
+                        background: rgba(255, 255, 255, 0.9);
+                        padding: 10px;
+                        border-radius: 5px;
+                    }
+                    .decorative-line {
+                        width: 100px;
+                        height: 2px;
+                        background: linear-gradient(90deg, transparent, #D4AF37, transparent);
+                        margin: 10px auto;
+                    }
+                </style>
+                </head><body>
+                <div class="sheet">
+                    <div class="corner tl"></div><div class="corner tr"></div>
+                    <div class="corner bl"></div><div class="corner br"></div>
+                    
+                    <div class="doc-info">
+                        <div><strong>Документ № ${p.id}</strong></div>
+                        <div>Дата выдачи: ${currentDateTime}</div>
+                        <div>Тип: Благодарность</div>
+                    </div>
+                    
+                    <div class="header">
+                        <div class="logo">🏛️</div>
+                        <div class="org">Волонтерская группа «Благо дарить»</div>
+                        <div class="decorative-line"></div>
+                        <div class="title">Благодарность</div>
+                        <div class="subtitle">За вклад в гуманитарную деятельность</div>
+                    </div>
+                    
+                    <div class="content">
+                        <div class="to">Награждается</div>
+                        <div class="name">${dName}</div>
+                        <div class="decorative-line"></div>
+                        <div class="text">
+                            Выражаем Вам искреннюю признательность ${gratitudeText}
+                        </div>
+                        <div class="additional">
+                            ${additionalText}
+                        </div>
+                        ${achievementsText ? `<div class="achievements">${achievementsText}</div>` : ''}
+                    </div>
+                    
+                    <div class="footer">
+                        <div class="pep">
+                            <strong>🔒 ДОКУМЕНТ ПОДПИСАН ЭЛЕКТРОННОЙ ПОДПИСЬЮ</strong><br>
+                            <strong>Владелец:</strong> ${user.name} (${user.role})<br>
+                            <strong>Сертификат:</strong> ${hash}<br>
+                            <strong>Дата подписи:</strong> ${currentDateTime}<br>
+                            <strong>Статус:</strong> ✅ Подписан и заверен<br>
+                            <strong>Система:</strong> Благо дарить v5.0
+                        </div>
+                        <div class="sign">
+                            <p style="font-weight: 600; color: #2C3E50;">Руководитель волонтерской группы</p>
+                            <p style="font-weight: 600; color: #2C3E50;">«Благо дарить»</p>
+                            <div class="sign-line"></div>
+                            <p style="font-weight: 700; font-size: 18px; color: #2C3E50; margin-top: 5px;">
+                                <strong>Яковлева Ольга Александровна</strong>
+                            </p>
+                            <p style="font-size: 13px; color: #7F8C8D; margin-top: 5px;">М.П.</p>
+                        </div>
+                    </div>
+                    
+                    <div style="position: absolute; bottom: 10mm; left: 25mm; right: 25mm; text-align: center; font-size: 12px; color: #BDC3C7; font-family: 'Open Sans', sans-serif;">
+                        <div style="border-top: 1px solid #BDC3C7; padding-top: 10px;">
+                            Этот документ является официальным свидетельством признания Ваших заслуг перед обществом.
+                            <br>Спасибо за Вашу активную жизненную позицию и готовность помогать другим! 🙏
+                        </div>
+                    </div>
+                </div>
+                </body></html>
+            `);
+            w.document.close();
+        }
+    </script>
+</body>
+</html>

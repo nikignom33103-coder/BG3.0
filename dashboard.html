@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Главная панель — Благо дарить v5.0</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        * { font-family: 'Inter', sans-serif; }
+        body { background: #f8fafc; color: #334155; }
+        .nav-link.active { background: #0f766e; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+    <aside class="w-64 bg-slate-900 text-white flex flex-col z-20">
+        <div class="h-16 flex items-center px-6 border-b border-slate-800 gap-3">
+            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center font-bold">Б</div>
+            <span class="font-bold text-lg">Благо дарить</span>
+        </div>
+        <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+            <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Меню</p>
+            <a href="dashboard.html" class="nav-link active flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition"><i class="fas fa-chart-pie w-6"></i>Сводка</a>
+            <a href="shipments.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-truck w-6"></i>Отправки</a>
+            <a href="recipients.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-users w-6"></i>Получатели</a>
+            <a href="inventory.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-warehouse w-6"></i>Склад</a>
+            <a href="team.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-people-group w-6"></i>Команда CRM</a>
+            <a href="reports.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-file-contract w-6"></i>Отчетность</a>
+            <div id="adminBlock" class="hidden mt-6">
+                <p class="px-2 text-xs font-bold text-slate-500 uppercase mb-2">Админ</p>
+                <a href="users.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-user-shield w-6"></i>Доступ</a>
+                <a href="settings.html" class="nav-link flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition hover:bg-white/10"><i class="fas fa-cogs w-6"></i>Настройки</a>
+            </div>
+        </nav>
+        <div class="p-4 border-t border-slate-800 flex items-center gap-3">
+            <div id="ava" class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold"></div>
+            <div class="flex-1 min-w-0">
+                <p id="myName" class="text-sm font-bold truncate">...</p>
+                <p id="myRole" class="text-xs text-slate-400 truncate">...</p>
+            </div>
+            <button onclick="logout()" class="text-slate-400 hover:text-white"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col bg-[#f1f5f9] overflow-hidden">
+        <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 z-10 shadow-sm">
+            <div class="flex items-center gap-4">
+                <h2 class="text-xl font-bold text-slate-800">Главная панель v5.0</h2>
+                <span id="currentDate" class="text-sm text-slate-500 font-medium"></span>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-sm text-slate-500 font-medium" id="clock"></div>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span class="text-xs text-slate-500">Онлайн</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex-1 overflow-auto p-8">
+            <!-- Enhanced Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition group cursor-pointer" onclick="window.location.href='shipments.html'">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition">
+                            <i class="fas fa-truck-fast text-xl"></i>
+                        </div>
+                        <span class="text-xs text-emerald-600 font-bold uppercase tracking-wide">Отправки</span>
+                    </div>
+                    <p id="statShip" class="text-3xl font-bold text-slate-800 mb-2">...</p>
+                    <div class="flex items-center justify-between text-sm">
+                        <span id="statShipCompleted" class="text-slate-500">Завершено: 0</span>
+                        <span id="statShipProgress" class="text-emerald-600 font-medium">В работе: 0</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition group cursor-pointer" onclick="window.location.href='recipients.html'">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition">
+                            <i class="fas fa-users text-xl"></i>
+                        </div>
+                        <span class="text-xs text-blue-600 font-bold uppercase tracking-wide">Получатели</span>
+                    </div>
+                    <p id="statRec" class="text-3xl font-bold text-slate-800 mb-2">...</p>
+                    <div class="flex items-center justify-between text-sm">
+                        <span id="statRecActive" class="text-slate-500">Активных: 0</span>
+                        <span id="statRecNew" class="text-blue-600 font-medium">Новых: 0</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition group cursor-pointer" onclick="window.location.href='inventory.html'">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center group-hover:scale-110 transition">
+                            <i class="fas fa-warehouse text-xl"></i>
+                        </div>
+                        <span class="text-xs text-amber-600 font-bold uppercase tracking-wide">Склад</span>
+                    </div>
+                    <p id="statInv" class="text-3xl font-bold text-slate-800 mb-2">...</p>
+                    <div class="flex items-center justify-between text-sm">
+                        <span id="statInvItems" class="text-slate-500">Наименований: 0</span>
+                        <span id="statInvLow" class="text-amber-600 font-medium">Критично: 0</span>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition group cursor-pointer" onclick="window.location.href='team.html'">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center group-hover:scale-110 transition">
+                            <i class="fas fa-people-group text-xl"></i>
+                        </div>
+                        <span class="text-xs text-purple-600 font-bold uppercase tracking-wide">Команда</span>
+                    </div>
+                    <p id="statTeam" class="text-3xl font-bold text-slate-800 mb-2">...</p>
+                    <div class="flex items-center justify-between text-sm">
+                        <span id="statTeamVolunteers" class="text-slate-500">Волонтеры: 0</span>
+                        <span id="statTeamDonors" class="text-purple-600 font-medium">Доноры: 0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <!-- Recent Activities -->
+                <div class="xl:col-span-2 space-y-8">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="font-bold text-slate-800 text-lg">Последняя активность</h3>
+                            <div class="flex gap-2">
+                                <button onclick="refreshDashboard()" class="px-3 py-1.5 text-sm bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition">
+                                    <i class="fas fa-refresh mr-1"></i>Обновить
+                                </button>
+                                <a href="documents.html" class="text-sm text-emerald-600 font-bold hover:underline">Все документы →</a>
+                            </div>
+                        </div>
+                        <div class="space-y-4 max-h-[400px] overflow-auto" id="recentActivities">
+                            <!-- Activities will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Performance Chart Placeholder -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                        <h3 class="font-bold text-slate-800 text-lg mb-4">Динамика работы</h3>
+                        <div class="h-64 flex items-center justify-center bg-slate-50 rounded-xl">
+                            <div class="text-center">
+                                <i class="fas fa-chart-line text-4xl text-slate-400 mb-4"></i>
+                                <p class="text-slate-500">График активности</p>
+                                <p class="text-sm text-slate-400">Данные будут отображаться после накопления статистики</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Actions & Status -->
+                <div class="space-y-8">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                        <h3 class="font-bold text-slate-800 text-lg mb-4">Быстрые действия</h3>
+                        <div class="space-y-3">
+                            <a href="shipments.html" class="flex items-center gap-4 p-4 rounded-xl border border-slate-100 hover:border-emerald-200 hover:shadow-md transition group">
+                                <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition">
+                                    <i class="fas fa-truck-fast"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-slate-700">Создать отправку</div>
+                                    <div class="text-xs text-slate-500">Новая отправка груза</div>
+                                </div>
+                            </a>
+                            <a href="inventory.html" class="flex items-center gap-4 p-4 rounded-xl border border-slate-100 hover:border-amber-200 hover:shadow-md transition group">
+                                <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center group-hover:scale-110 transition">
+                                    <i class="fas fa-box-open"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-slate-700">Управление складом</div>
+                                    <div class="text-xs text-slate-500">Приход/расход товаров</div>
+                                </div>
+                            </a>
+                            <a href="team.html" class="flex items-center gap-4 p-4 rounded-xl border border-slate-100 hover:border-purple-200 hover:shadow-md transition group">
+                                <div class="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center group-hover:scale-110 transition">
+                                    <i class="fas fa-user-plus"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-slate-700">Новый участник</div>
+                                    <div class="text-xs text-slate-500">Добавить волонтера</div>
+                                </div>
+                            </a>
+                            <a href="reports.html" class="flex items-center gap-4 p-4 rounded-xl border border-slate-100 hover:border-blue-200 hover:shadow-md transition group">
+                                <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition">
+                                    <i class="fas fa-file-chart"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-slate-700">Создать отчет</div>
+                                    <div class="text-xs text-slate-500">Аналитика и отчеты</div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- System Status -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                        <h3 class="font-bold text-slate-800 text-lg mb-4">Состояние системы</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                                    <span class="text-sm font-medium text-slate-700">База данных</span>
+                                </div>
+                                <span class="text-xs text-emerald-600 font-bold">ОК</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-emerald-50 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                                    <span class="text-sm font-medium text-slate-700">Документооборот</span>
+                                </div>
+                                <span class="text-xs text-emerald-600 font-bold">АКТИВЕН</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                    <span class="text-sm font-medium text-slate-700">Версия</span>
+                                </div>
+                                <span class="text-xs text-blue-600 font-bold">v5.0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const firebaseConfig = { apiKey: "AIzaSyDRMyiouLjL6oyQK5TIpr69b8mvCcq4uLE", authDomain: "blago-a6270.firebaseapp.com", databaseURL: "https://blago-a6270-default-rtdb.firebaseio.com", projectId: "blago-a6270", storageBucket: "blago-a6270.firebasestorage.app", messagingSenderId: "857823585303", appId: "1:857823585303:web:6ce2d1acff62b16ebd2852", measurementId: "G-YHWJPH8TF9" };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        
+        const user = JSON.parse(localStorage.getItem('blago_user'));
+        if(!user) window.location.href = 'index.html';
+        
+        document.getElementById('myName').innerText = user.name;
+        const roles = {admin:'Администратор', coordinator:'Координатор', volunteer:'Волонтер'};
+        document.getElementById('myRole').innerText = roles[user.role] || user.role;
+        document.getElementById('ava').innerText = user.name[0];
+        if(user.role === 'admin') document.getElementById('adminBlock').classList.remove('hidden');
+
+        function logout() { 
+            localStorage.removeItem('blago_user'); 
+            window.location.href='index.html'; 
+        }
+        
+        // Enhanced clock and date
+        function updateTimeDisplay() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('ru-RU');
+            document.getElementById('currentDate').innerText = now.toLocaleDateString('ru-RU', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+        }
+        
+        setInterval(updateTimeDisplay, 1000);
+        updateTimeDisplay();
+
+        // Enhanced Statistics
+        function updateStats() {
+            // Shipments stats
+            db.ref('shipments').on('value', s => {
+                const shipments = s.val() || [];
+                const total = shipments.length;
+                const completed = shipments.filter(sh => sh.status === 'completed').length;
+                const inProgress = shipments.filter(sh => sh.status === 'in_progress' || sh.status === 'draft').length;
+                
+                document.getElementById('statShip').innerText = total;
+                document.getElementById('statShipCompleted').innerText = `Завершено: ${completed}`;
+                document.getElementById('statShipProgress').innerText = `В работе: ${inProgress}`;
+            });
+
+            // Recipients stats
+            db.ref('recipients').on('value', s => {
+                const recipients = s.val() || [];
+                const total = recipients.length;
+                const active = recipients.filter(r => r.active !== false).length;
+                
+                document.getElementById('statRec').innerText = total;
+                document.getElementById('statRecActive').innerText = `Активных: ${active}`;
+                document.getElementById('statRecNew').innerText = `Всего: ${total}`;
+            });
+
+            // Inventory stats
+            db.ref('inventory').on('value', s => {
+                const items = s.val() || [];
+                const totalItems = items.length;
+                const totalQuantity = items.reduce((sum, item) => sum + (parseInt(item.quantity) || 0), 0);
+                const lowStock = items.filter(item => parseInt(item.quantity) < 10).length;
+                
+                document.getElementById('statInv').innerText = totalQuantity;
+                document.getElementById('statInvItems').innerText = `Наименований: ${totalItems}`;
+                document.getElementById('statInvLow').innerText = `Критично: ${lowStock}`;
+            });
+
+            // Team stats
+            db.ref('team').on('value', s => {
+                const team = s.val() || [];
+                const total = team.length;
+                const volunteers = team.filter(m => m.type === 'volunteer').length;
+                const donors = team.filter(m => m.type === 'donor' || m.type === 'company').length;
+                
+                document.getElementById('statTeam').innerText = total;
+                document.getElementById('statTeamVolunteers').innerText = `Волонтеры: ${volunteers}`;
+                document.getElementById('statTeamDonors').innerText = `Доноры: ${donors}`;
+            });
+        }
+
+        // Recent Activities with enhanced display
+        function loadRecentActivities() {
+            const activities = [];
+            
+            // Load from multiple sources
+            db.ref('shipments').limitToLast(5).on('value', s => {
+                const shipments = s.val() || [];
+                shipments.forEach(sh => {
+                    activities.push({
+                        type: 'shipment',
+                        icon: 'fas fa-truck',
+                        color: 'emerald',
+                        title: `Отправка груза`,
+                        description: sh.items?.substring(0, 50) + '...',
+                        date: sh.date || sh.createdAt,
+                        user: sh.createdBy,
+                        status: sh.status
+                    });
+                });
+                updateActivitiesDisplay(activities);
+            });
+
+            db.ref('team').limitToLast(3).on('value', s => {
+                const team = s.val() || [];
+                team.forEach(member => {
+                    activities.push({
+                        type: 'member',
+                        icon: 'fas fa-user-plus',
+                        color: 'purple',
+                        title: `Новый участник`,
+                        description: member.name,
+                        date: member.createdAt || member.joinDate,
+                        user: member.createdBy,
+                        status: 'new'
+                    });
+                });
+                updateActivitiesDisplay(activities);
+            });
+
+            db.ref('inventory').limitToLast(3).on('value', s => {
+                const inventory = s.val() || [];
+                inventory.forEach(item => {
+                    if(item.type) { // Only operations, not stock items
+                        activities.push({
+                            type: 'inventory',
+                            icon: item.type === 'in' ? 'fas fa-arrow-up' : 'fas fa-arrow-down',
+                            color: item.type === 'in' ? 'green' : 'red',
+                            title: `${item.type === 'in' ? 'Приход' : 'Списание'}`,
+                            description: item.name,
+                            date: item.date,
+                            user: item.responsible,
+                            status: 'completed'
+                        });
+                    }
+                });
+                updateActivitiesDisplay(activities);
+            });
+        }
+
+        function updateActivitiesDisplay(activities) {
+            const sortedActivities = activities
+                .filter(a => a.date)
+                .sort((a, b) => new Date(b.date) - new Date(a.date))
+                .slice(0, 10);
+
+            document.getElementById('recentActivities').innerHTML = sortedActivities.map(activity => {
+                const colorClasses = {
+                    emerald: 'bg-emerald-100 text-emerald-600',
+                    purple: 'bg-purple-100 text-purple-600',
+                    green: 'bg-green-100 text-green-600',
+                    red: 'bg-red-100 text-red-600',
+                    blue: 'bg-blue-100 text-blue-600'
+                };
+
+                const statusBadges = {
+                    'completed': '<span class="px-2 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">Завершено</span>',
+                    'in_progress': '<span class="px-2 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-700">В работе</span>',
+                    'draft': '<span class="px-2 py-1 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700">Черновик</span>',
+                    'new': '<span class="px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-700">Новый</span>'
+                };
+
+                return `
+                    <div class="flex items-start gap-4 p-4 rounded-xl border border-slate-100 hover:shadow-md transition">
+                        <div class="w-10 h-10 rounded-full ${colorClasses[activity.color] || 'bg-slate-100 text-slate-600'} flex items-center justify-center flex-shrink-0">
+                            <i class="${activity.icon}"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <h4 class="font-bold text-slate-800 text-sm">${activity.title}</h4>
+                                    <p class="text-slate-600 text-sm mt-1">${activity.description}</p>
+                                    <div class="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                                        <span><i class="fas fa-calendar mr-1"></i>${activity.date}</span>
+                                        <span><i class="fas fa-user mr-1"></i>${activity.user}</span>
+                                    </div>
+                                </div>
+                                ${statusBadges[activity.status] || ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('') || `
+                <div class="text-center py-8">
+                    <i class="fas fa-clock text-4xl text-slate-400 mb-4"></i>
+                    <p class="text-slate-500">Активность появится здесь</p>
+                    <p class="text-sm text-slate-400">После создания первых документов</p>
+                </div>
+            `;
+        }
+
+        // Refresh dashboard function
+        function refreshDashboard() {
+            updateStats();
+            loadRecentActivities();
+            
+            // Show refresh animation
+            const btn = event.target.closest('button');
+            const icon = btn.querySelector('i');
+            icon.classList.add('fa-spin');
+            
+            setTimeout(() => {
+                icon.classList.remove('fa-spin');
+            }, 1000);
+        }
+
+        // Initialize dashboard
+        updateStats();
+        loadRecentActivities();
+    </script>
+</body>
+</html>
