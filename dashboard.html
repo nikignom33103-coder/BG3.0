@@ -80,6 +80,20 @@
                     </div>
                 </div>
 
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition group cursor-pointer" onclick="window.location.href='finances.html'">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition">
+                            <i class="fas fa-wallet text-xl"></i>
+                        </div>
+                        <span class="text-xs text-emerald-600 font-bold uppercase tracking-wide">Финансы</span>
+                    </div>
+                    <p id="statBalance" class="text-3xl font-bold text-slate-800 mb-2">...</p>
+                    <div class="flex items-center justify-between text-sm">
+                        <span id="statIncome" class="text-emerald-600">Доход: 0 ₽</span>
+                        <span id="statExpense" class="text-red-600">Расход: 0 ₽</span>
+                    </div>
+                </div>
+
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-md transition group cursor-pointer" onclick="window.location.href='recipients.html'">
                     <div class="flex items-center justify-between mb-4">
                         <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center group-hover:scale-110 transition">
@@ -266,6 +280,28 @@
 
         // Enhanced Statistics
         function updateStats() {
+            // Financial stats
+            db.ref('finances').on('value', s => {
+                const finances = s.val() || {};
+                let balance = 0, income = 0, expense = 0;
+                
+                Object.values(finances).forEach(t => {
+                    if (!t) return;
+                    const amount = t.amount || 0;
+                    if (t.type === 'in') {
+                        balance += amount;
+                        income += amount;
+                    } else if (t.type === 'out') {
+                        balance -= amount;
+                        expense += amount;
+                    }
+                });
+                
+                document.getElementById('statBalance').innerText = balance.toLocaleString('ru-RU') + ' ₽';
+                document.getElementById('statIncome').innerText = `Доход: ${income.toLocaleString('ru-RU')} ₽`;
+                document.getElementById('statExpense').innerText = `Расход: ${expense.toLocaleString('ru-RU')} ₽`;
+            });
+
             // Shipments stats
             db.ref('shipments').on('value', s => {
                 const shipments = s.val() || [];

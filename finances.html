@@ -189,7 +189,17 @@
 
                 <div id="donorField" class="hidden">
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Благотворитель</label>
-                    <input type="text" id="donor" name="donor" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Имя или организация">
+                    <div class="flex gap-2">
+                        <select id="donor" name="donor" class="flex-1 p-3 border border-slate-200 rounded-xl">
+                            <option value="">Выберите из списка</option>
+                        </select>
+                        <button type="button" onclick="toggleNewDonor()" class="px-3 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition" title="Добавить нового">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                    <div id="newDonorField" class="hidden mt-2">
+                        <input type="text" id="newDonorName" class="w-full p-3 border border-slate-200 rounded-xl" placeholder="Имя или организация благотворителя">
+                    </div>
                 </div>
 
                 <div id="categoryField">
@@ -382,9 +392,15 @@
 
             if (type === 'in') {
                 document.getElementById('donorField').classList.remove('hidden');
+                document.getElementById('newDonorField').classList.add('hidden');
+                loadDonors();
             } else {
                 document.getElementById('donorField').classList.add('hidden');
             }
+
+            // Set today's date by default
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('date').value = today;
 
             modal.classList.remove('hidden');
         }
@@ -403,11 +419,18 @@
                 return;
             }
 
+            // Get donor name either from select or new donor input
+            let donor = data.get('donor');
+            const newDonorField = document.getElementById('newDonorField');
+            if (newDonorField && !newDonorField.classList.contains('hidden')) {
+                donor = document.getElementById('newDonorName').value || donor;
+            }
+
             const transaction = {
                 type: document.getElementById('transactionType').value,
                 date: data.get('date'),
                 wallet: data.get('wallet'),
-                donor: data.get('donor') || '',
+                donor: donor || '',
                 category: data.get('category'),
                 amount: amount,
                 description: data.get('description') || '',
@@ -432,6 +455,38 @@
                     loadFinanceData();
                     showToast('✅ Транзакция удалена');
                 });
+            }
+        }
+
+        function loadDonors() {
+            const donorSelect = document.getElementById('donor');
+            donorSelect.innerHTML = '<option value="">Выберите из списка</option>';
+            
+            db.ref('finances').once('value', snap => {
+                const finances = snap.val() || {};
+                const donors = new Set();
+                
+                Object.values(finances).forEach(t => {
+                    if (t && t.donor && t.type === 'in') {
+                        donors.add(t.donor);
+                    }
+                });
+                
+                donors.forEach(donor => {
+                    const option = document.createElement('option');
+                    option.value = donor;
+                    option.textContent = donor;
+                    donorSelect.appendChild(option);
+                });
+            });
+        }
+
+        function toggleNewDonor() {
+            const newDonorField = document.getElementById('newDonorField');
+            newDonorField.classList.toggle('hidden');
+            if (!newDonorField.classList.contains('hidden')) {
+                document.getElementById('newDonorName').focus();
+                document.getElementById('donor').value = '';
             }
         }
 

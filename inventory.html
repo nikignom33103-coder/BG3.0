@@ -203,11 +203,16 @@
         let currentWarehouse = 'sof';
 
         db.ref('inventory').on('value', snap => {
-            inventory = snap.val() || [];
+            inventory = snap.val() || {};
             render();
-            const goods = [...new Set(inventory.map(i => i.name))];
-            document.getElementById('goods').innerHTML = goods.map(g => `<option value="${g}">`).join('');
         });
+
+        function loadInventory() {
+            db.ref('inventory').once('value', snap => {
+                inventory = snap.val() || {};
+                render();
+            });
+        }
 
         function switchTab(w){
             currentWarehouse = w;
@@ -217,7 +222,8 @@
         }
 
         function render() {
-            const list = inventory.filter(i => (i.warehouse || 'sof') === currentWarehouse);
+            const items = Array.isArray(inventory) ? inventory : Object.entries(inventory || {}).map(([key, val]) => ({...val, firebaseId: key}));
+            const list = items.filter(i => i && (i.warehouse || 'sof') === currentWarehouse);
             
             // Calculate summary statistics
             const totalItems = list.length;
@@ -278,19 +284,19 @@
                         </td>
                         <td class="px-6 py-4 text-right">
                             <div class="flex justify-end gap-2">
-                                <button onclick='viewInventoryItem(${i.id})' class="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition" title="Просмотр">
+                                <button onclick='viewInventoryItem("${i.firebaseId || i.id}")' class="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition" title="Просмотр">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                <button onclick='printInventoryDoc(${i.id})' class="p-2 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition" title="Печать карточки">
+                                <button onclick='printInventoryDoc("${i.firebaseId || i.id}")' class="p-2 text-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition" title="Печать карточки">
                                     <i class="fas fa-print"></i>
                                 </button>
-                                <button onclick='addInventoryOperation(${i.id})' class="p-2 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition" title="Добавить операцию">
+                                <button onclick='addInventoryOperation("${i.firebaseId || i.id}")' class="p-2 text-purple-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition" title="Добавить операцию">
                                     <i class="fas fa-plus"></i>
                                 </button>
-                                <button onclick='editInventoryItem(${i.id})' class="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition" title="Редактировать">
+                                <button onclick='editInventoryItem("${i.firebaseId || i.id}")' class="p-2 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition" title="Редактировать">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button onclick='deleteInventoryItem(${i.id})' class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition" title="Удалить">
+                                <button onclick='deleteInventoryItem("${i.firebaseId || i.id}")' class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition" title="Удалить">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -383,13 +389,14 @@
         }
 
         function editInventoryItem(id) {
-            const item = inventory.find(x => x.id === id);
+            const items = Array.isArray(inventory) ? inventory : Object.values(inventory || {});
+            const item = items.find(x => (x.firebaseId || x.id) === id || x.id === parseInt(id));
             if(!item) return;
             
             // Заполнить форму текущими данными
             const form = document.getElementById('opForm');
             form.type.value = 'in'; // Для редактирования всегда приход
-            form.date.value = item.createdAt ? new Date(item.createdAt.split(' ')[0].split('.').reverse().join('-')).toISOString().split('T')[0] : '';
+            form.date.value = item.createdAt ? new Date(item.date).toISOString().split('T')[0] : '';
             form.name.value = item.name;
             form.qty.value = item.quantity;
             form.unit.value = item.unit;
@@ -412,7 +419,6 @@
             const f = document.getElementById('opForm');
             
             const updatedItem = {
-                ...inventory.find(x => x.id === id),
                 name: f.name.value,
                 quantity: parseInt(f.qty.value),
                 unit: f.unit.value,
@@ -422,35 +428,29 @@
                 source: f.source.value,
                 notes: f.notes.value,
                 updatedAt: new Date().toLocaleString('ru-RU'),
-                updatedBy: user.name
+                updatedBy: JSON.parse(localStorage.getItem('blago_user')).name
             };
 
             try {
-                const snapshot = await db.ref('inventory').once('value');
-                const list = snapshot.val() || [];
-                const updatedList = list.map(x => x.id === id ? updatedItem : x);
-                await db.ref('inventory').set(updatedList);
+                await db.ref('inventory').child(id).update(updatedItem);
                 
-                alert(`Товар "${updatedItem.name}" успешно обновлен!`);
+                alert(`✅ Товар успешно обновлен!`);
                 closeModal();
-                
-                // Восстановить кнопку подтверждения
-                const confirmBtn = document.querySelector('#signModal button[onclick]');
-                confirmBtn.innerText = 'Подписать';
-                confirmBtn.onclick = confirmOp;
+                loadInventory();
                 
             } catch (error) {
                 console.error('Ошибка при обновлении:', error);
-                alert('Произошла ошибка при обновлении товара');
+                alert('❌ Произошла ошибка при обновлении товара');
             }
         }
 
         function deleteInventoryItem(id) {
-            const item = inventory.find(x => x.id === id);
+            const items = Array.isArray(inventory) ? inventory : Object.values(inventory || {});
+            const item = items.find(x => (x.firebaseId || x.id) === id || x.id === parseInt(id));
             if(confirm(`Удалить товар "${item?.name}" из склада?`)) {
-                db.ref('inventory').once('value').then(snap => {
-                    const list = snap.val().filter(x => x.id !== id);
-                    db.ref('inventory').set(list);
+                db.ref('inventory').child(id).remove(() => {
+                    alert('✅ Товар успешно удален из склада');
+                    loadInventory();
                 });
             }
         }
@@ -460,15 +460,20 @@
             const type = f.type.value;
             const qty = parseInt(f.qty.value);
             
+            if (!f.name.value.trim() || !qty || qty <= 0) {
+                alert('❌ Заполните все обязательные поля');
+                return;
+            }
+            
             const isBackdated = document.getElementById('backdate').checked;
             const entryDate = isBackdated ? 
                 (f.entryDate.value ? new Date(f.entryDate.value).toLocaleDateString('ru-RU') : new Date().toLocaleDateString('ru-RU')) :
                 new Date().toLocaleDateString('ru-RU');
             
             const dateStr = new Date(f.date.value).toLocaleDateString('ru-RU');
+            const user = JSON.parse(localStorage.getItem('blago_user'));
             
             const newItem = {
-                id: Date.now(),
                 type: type,
                 date: dateStr,
                 entryDate: entryDate,
@@ -482,47 +487,27 @@
                 notes: f.notes.value,
                 createdBy: user.name,
                 createdAt: new Date().toLocaleString('ru-RU'),
-                status: 'draft',
-                signatures: {
-                    creator: {
-                        signerId: user.id,
-                        signerName: user.name,
-                        signerRole: user.role,
-                        signedAt: new Date().toISOString(),
-                        status: 'signed',
-                        signatureHash: generateSignatureHash(f),
-                        comment: 'Документ создан и подписан создателем'
-                    }
-                }
+                status: 'active',
+                updatedAt: new Date().toLocaleString('ru-RU')
             };
 
-            const snap = await db.ref('inventory').once('value');
-            let list = snap.val() || [];
-            
-            // Logic для обновления остатков
-            let existingItem = list.find(x => x.name === f.name.value && (x.warehouse||'sof') === f.warehouse.value && !x.type);
-            if(existingItem) {
-                existingItem.quantity = type === 'in' ? existingItem.quantity + qty : existingItem.quantity - qty;
-                existingItem.updatedAt = new Date().toLocaleString('ru-RU');
-                existingItem.updatedBy = user.name;
-            } else if (type === 'in') {
-                list.push({
-                    ...newItem,
-                    quantity: qty
-                });
+            try {
+                // Сохранить операцию
+                await db.ref('inventory').push(newItem);
+                
+                // Печать документа
+                printInventoryOperation(newItem);
+                
+                alert(`✅ Операция "${type === 'in' ? 'Приход' : 'Списание'}" успешно создана!`);
+                
+                document.getElementById('signModal').classList.add('hidden');
+                closeModal();
+                loadInventory();
+                
+            } catch (error) {
+                console.error('Ошибка при создании операции:', error);
+                alert('❌ Ошибка: ' + error.message);
             }
-
-            // Добавляем операцию в журнал
-            list.push(newItem);
-            await db.ref('inventory').set(list);
-            
-            // Печать документа
-            printInventoryOperation(newItem);
-            
-            alert(`Операция "${type === 'in' ? 'приход' : 'списание'}" успешно создана и подписана!`);
-            
-            document.getElementById('signModal').classList.add('hidden');
-            closeModal();
         }
 
         function generateSignatureHash(formData) {
